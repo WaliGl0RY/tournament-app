@@ -144,6 +144,27 @@ def add_player(tid):
         db.close()
 
 
+@routes_bp.route('/api/tournament/<int:tid>/remove-player', methods=['POST'])
+def remove_player(tid):
+    err = require_login()
+    if err: return err
+    username = (request.get_json() or {}).get('username', '').strip()
+    if not username: return jsonify({'error': 'Username required'}), 400
+    db = get_db()
+    try:
+        t = db.execute('SELECT * FROM tournaments WHERE id=?', (tid,)).fetchone()
+        if not t: return jsonify({'error': 'Not found'}), 404
+        if t['admin_id'] != session['user_id']: return jsonify({'error': 'Admin only'}), 403
+        if t['status'] != 'setup': return jsonify({'error': 'Cannot remove players after start'}), 409
+        user = db.execute('SELECT * FROM users WHERE username=?', (username,)).fetchone()
+        if not user: return jsonify({'error': f'No user "{username}"'}), 404
+        db.execute('DELETE FROM participants WHERE tournament_id=? AND user_id=?', (tid, user['id']))
+        db.commit()
+        return jsonify({'ok': True})
+    finally:
+        db.close()
+
+
 @routes_bp.route('/api/tournament/<int:tid>/participants')
 def get_participants(tid):
     db = get_db()

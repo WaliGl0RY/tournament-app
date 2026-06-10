@@ -302,6 +302,12 @@
     renderPicker(allUsers.filter(function(u) { return u.username.toLowerCase().includes(q); }));
   }
 
+  async function removePlayer(username) {
+    const res = await api('/api/tournament/' + activeTid + '/remove-player', 'POST', { username });
+    if (res.ok) refreshPlayerList();
+    else alert(res.error || 'Could not remove player.');
+  }
+
   async function addPlayerById(userId, username) {
     const msgEl = document.getElementById('add-player-msg');
     msgEl.style.display = 'none';
@@ -346,7 +352,9 @@
           '<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:var(--surface2);font-size:0.85rem">' +
           '<span style="width:22px;height:22px;border-radius:50%;background:' + avatarColor(p.username) +
           ';display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:700">' +
-          initials(p.username) + '</span>' + p.username + '</span>'
+          initials(p.username) + '</span>' + p.username +
+          '<span onclick="removePlayer(\'' + p.username + '\')" style="margin-left:4px;cursor:pointer;color:var(--muted);font-size:1rem;line-height:1" title="Remove">×</span>' +
+          '</span>'
         );
       }).join('');
     }
