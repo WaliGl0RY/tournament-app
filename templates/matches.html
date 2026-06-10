@@ -1,0 +1,363 @@
+{% extends "base.html" %}
+{% block title %}Matches{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2 class="page-title" id="matches-title">Matches</h2>
+  <button class="btn-ghost-sm" onclick="loadMatches()">↻ Refresh</button>
+</div>
+
+<!-- Championnat view -->
+<div id="view-championnat">
+  <div id="my-matches-section">
+    <h3 class="section-label">Your pending matches</h3>
+    <div id="my-matches-list"><p class="empty-msg">Loading…</p></div>
+  </div>
+  <div id="all-matches-section" style="margin-top:2rem">
+    <h3 class="section-label">All matches</h3>
+    <div class="matchday-filter" id="matchday-filter"></div>
+    <div id="all-matches-list"><p class="empty-msg">Loading…</p></div>
+  </div>
+</div>
+
+<!-- Supercup bracket view -->
+<div id="view-supercup" style="display:none">
+  <!-- Advance round banner (walid only) -->
+  <div id="advance-banner" style="display:none;margin-bottom:1rem">
+    <div class="card" style="background:var(--gold)12;border-color:var(--gold)66;padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+      <div>
+        <div style="font-weight:700;color:var(--gold)">All semi-final results are in!</div>
+        <div style="font-size:0.82rem;color:var(--muted);margin-top:2px">Generate the Final to continue the tournament.</div>
+      </div>
+      <button class="btn-primary" id="advance-btn" onclick="doAdvance()">Generate Final →</button>
+    </div>
+    <div id="advance-result" style="display:none;margin-top:6px;font-size:0.85rem;padding:8px 12px;border-radius:8px"></div>
+  </div>
+  <div id="my-matches-supercup" style="margin-bottom:1.5rem">
+    <h3 class="section-label">Your pending matches</h3>
+    <div id="my-supercup-list"><p class="empty-msg">Loading…</p></div>
+  </div>
+  <div class="card" style="padding:0;overflow:hidden">
+    <div style="padding:0.85rem 1.25rem;border-bottom:1px solid var(--border)">
+      <span class="step-title">Tournament bracket</span>
+    </div>
+    <div id="bracket-view"></div>
+  </div>
+</div>
+
+<!-- Result modal -->
+<div id="modal-overlay" class="modal-overlay" style="display:none" onclick="closeModal(event)">
+  <div class="modal-box">
+    <h3 class="modal-title" id="modal-title">Enter result</h3>
+    <div class="modal-teams" id="modal-teams"></div>
+    <div class="score-row">
+      <input class="score-input" type="number" id="score-home" min="0" max="20" value="0"/>
+      <span class="score-sep">—</span>
+      <input class="score-input" type="number" id="score-away" min="0" max="20" value="0"/>
+    </div>
+    <div id="modal-error" class="error-msg" style="display:none"></div>
+    <button class="btn-primary" onclick="submitResult()">Submit result</button>
+    <button class="btn-ghost" onclick="document.getElementById('modal-overlay').style.display='none'" style="margin-top:8px">Cancel</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  let allMatches = [], currentMatchId = null;
+
+  async function loadMatches() {
+    const tid  = localStorage.getItem('tournament_id');
+    const me   = localStorage.getItem('username');
+    const isAdmin = me && me.toLowerCase() === 'walid';
+    if (!tid) {
+      document.getElementById('my-matches-list').innerHTML = '<p class="empty-msg">No tournament joined.</p>';
+      return;
+    }
+    const [info, matches] = await Promise.all([
+      api('/api/tournament/' + tid + '/info'),
+      api('/api/tournament/' + tid + '/matches')
+    ]);
+    allMatches = matches || [];
+    const ttype = (info && info.tournament_type) || 'championnat';
+
+    if (ttype === 'supercup') {
+      document.getElementById('view-championnat').style.display = 'none';
+      document.getElementById('view-supercup').style.display = 'block';
+      renderSupercupPending(allMatches, me, isAdmin);
+      renderBracket(allMatches, me, isAdmin);
+      checkAdvanceBanner(allMatches, isAdmin);
+    } else {
+      document.getElementById('view-championnat').style.display = 'block';
+      document.getElementById('view-supercup').style.display = 'none';
+      renderChampionnatPending(allMatches, me, isAdmin);
+      renderChampionnatAll(allMatches, me, isAdmin);
+    }
+  }
+
+  // ── Championnat ──────────────────────────────────
+  function renderChampionnatPending(matches, me, isAdmin) {
+    const pending = isAdmin
+      ? matches.filter(function(m) { return m.home_score === null; })
+      : matches.filter(function(m) { return m.home_score === null && (m.home_username === me || m.away_username === me); });
+    const lbl = document.querySelector('#my-matches-section .section-label');
+    if (lbl) lbl.textContent = isAdmin ? 'All pending matches' : 'Your pending matches';
+    const el = document.getElementById('my-matches-list');
+    el.innerHTML = pending.length
+      ? pending.map(function(m) { return matchCard(m, true, me, isAdmin); }).join('')
+      : '<p class="empty-msg">' + (isAdmin ? 'No pending matches.' : 'No pending matches 🎉') + '</p>';
+  }
+
+  function renderChampionnatAll(matches, me, isAdmin) {
+    const matchdays = [...new Set(matches.map(function(m) { return m.matchday; }))].sort(function(a,b){return a-b;});
+    const filterEl  = document.getElementById('matchday-filter');
+    // Group into halves
+    const half = Math.ceil(matchdays.length / 2);
+    filterEl.innerHTML = matchdays.map(function(md) {
+      const label = md <= half ? '1st H MD' + md : '2nd H MD' + (md - half);
+      return '<button class="md-btn" id="md-btn-' + md + '" onclick="filterMD(' + md + ')">' + label + '</button>';
+    }).join('');
+    renderAllMatchCards(matches, me, isAdmin);
+  }
+
+  function filterMD(md) {
+    document.querySelectorAll('.md-btn').forEach(function(b) { b.classList.remove('active'); });
+    const btn = document.getElementById('md-btn-' + md);
+    if (btn) btn.classList.add('active');
+    const me = localStorage.getItem('username');
+    const isAdmin = me && me.toLowerCase() === 'walid';
+    renderAllMatchCards(allMatches.filter(function(m) { return m.matchday === md; }), me, isAdmin);
+  }
+
+  function renderAllMatchCards(matches, me, isAdmin) {
+    const el = document.getElementById('all-matches-list');
+    el.innerHTML = matches.length
+      ? matches.map(function(m) { return matchCard(m, false, me, isAdmin); }).join('')
+      : '<p class="empty-msg">No matches.</p>';
+  }
+
+  function matchCard(m, isAction, me, isAdmin) {
+    const done     = m.home_score !== null;
+    const isMyMatch = isAdmin || m.home_username === me || m.away_username === me;
+    const canEnter  = !done && (isAdmin || isAction);
+    const half = m.leg === 2
+      ? '<span class="half-badge second">2nd Half</span>'
+      : '<span class="half-badge first">1st Half</span>';
+    const score = done
+      ? '<div class="confirmed-score">' + m.home_score + ' — ' + m.away_score + '<br><span class="confirmed-label">confirmed</span></div>'
+      : canEnter
+        ? '<button class="btn-enter" onclick="openModal(' + m.id + ',\'' + m.home_username + '\',\'' + m.away_username + '\')">Enter result</button>'
+        : '<div class="pending-score">vs</div>';
+    return '<div class="match-card ' + (isMyMatch && !done ? 'my-match' : '') + '">' +
+      '<div class="match-md">MD ' + m.matchday + half + ((!isAdmin && isMyMatch) ? ' <span class="you-tag">your match</span>' : '') + '</div>' +
+      '<div class="match-row">' +
+        '<div class="match-player"><div class="match-pname">' + m.home_username + '</div><div class="match-team">' + (m.home_team||'—') + '</div></div>' +
+        score +
+        '<div class="match-player right"><div class="match-pname">' + m.away_username + '</div><div class="match-team">' + (m.away_team||'—') + '</div></div>' +
+      '</div></div>';
+  }
+
+  // ── Supercup pending ─────────────────────────────
+  function renderSupercupPending(matches, me, isAdmin) {
+    const pending = isAdmin
+      ? matches.filter(function(m) { return m.home_score === null; })
+      : matches.filter(function(m) { return m.home_score === null && (m.home_username === me || m.away_username === me); });
+    const el = document.getElementById('my-supercup-list');
+    if (!pending.length) {
+      el.innerHTML = '<p class="empty-msg">' + (isAdmin ? 'No pending matches.' : 'No pending matches 🎉') + '</p>';
+      return;
+    }
+    el.innerHTML = pending.map(function(m) {
+      const legLabel = '<span class="half-badge ' + (m.leg===1?'first':'second') + '">Leg ' + m.leg + '</span>';
+      return '<div class="match-card my-match">' +
+        '<div class="match-md">' + (m.round_label||'Match') + legLabel + '</div>' +
+        '<div class="match-row">' +
+          '<div class="match-player"><div class="match-pname">' + m.home_username + '</div><div class="match-team">' + (m.home_team||'—') + '</div></div>' +
+          '<button class="btn-enter" onclick="openModal(' + m.id + ',\'' + m.home_username + '\',\'' + m.away_username + '\')">Enter result</button>' +
+          '<div class="match-player right"><div class="match-pname">' + m.away_username + '</div><div class="match-team">' + (m.away_team||'—') + '</div></div>' +
+        '</div></div>';
+    }).join('');
+  }
+
+  // ── Bracket tree ─────────────────────────────────
+  function renderBracket(matches, me, isAdmin) {
+    const el = document.getElementById('bracket-view');
+    // Group by round: pairs of consecutive matchdays (leg1=odd, leg2=even)
+    const maxMd = Math.max(...matches.map(function(m) { return m.matchday; }), 0);
+    const rounds = [];
+    for (let leg1Md = 1; leg1Md <= maxMd; leg1Md += 2) {
+      const leg2Md = leg1Md + 1;
+      const leg1Matches = matches.filter(function(m) { return m.matchday === leg1Md; });
+      const leg2Matches = matches.filter(function(m) { return m.matchday === leg2Md; });
+      if (leg1Matches.length) rounds.push({ leg1: leg1Matches, leg2: leg2Matches });
+    }
+    if (!rounds.length) { el.innerHTML = '<p class="empty-msg" style="padding:1rem">No matches generated yet.</p>'; return; }
+
+    // Build pairs: each leg1 match paired with its leg2 (reversed home/away)
+    function buildPairs(round) {
+      return round.leg1.map(function(l1) {
+        const l2 = (round.leg2 || []).find(function(m) {
+          return m.home_participant_id === l1.away_participant_id &&
+                 m.away_participant_id === l1.home_participant_id;
+        });
+        return { l1, l2 };
+      });
+    }
+
+    function aggregateFor(pair) {
+      if (!pair.l1 || !pair.l2) return null;
+      if (pair.l1.home_score === null || pair.l2.home_score === null) return null;
+      const h = pair.l1.home_score + pair.l2.away_score;
+      const a = pair.l1.away_score + pair.l2.home_score;
+      return { h1: pair.l1.home_username, h2: pair.l1.away_username, h, a };
+    }
+
+    function pairHtml(pair, roundIdx, isLast) {
+      const l1 = pair.l1, l2 = pair.l2;
+      const agg = aggregateFor(pair);
+      let aggHtml = '<div class="bracket-agg">Aggregate pending</div>';
+      if (agg) {
+        const winnerName = agg.h > agg.a ? agg.h1 : agg.h2;
+        const desc = agg.h1 + ' ' + agg.h + '–' + agg.a + ' ' + agg.h2;
+        aggHtml = '<div class="bracket-agg winner">' + (isLast ? '🏆 ' : '→ ') + winnerName + ' &nbsp;<span style="font-weight:400;color:var(--muted)">(' + desc + ' agg)</span></div>';
+      } else if (l2 && l2.home_score === null) {
+        aggHtml = '<div class="bracket-agg">Leg 2 pending</div>';
+      } else if (!l2) {
+        aggHtml = '<div class="bracket-agg">Awaiting leg 2</div>';
+      }
+
+      function legRow(m, legNum) {
+        if (!m) return '<div class="bracket-leg-row"><span class="bracket-leg-label">Leg ' + legNum + '</span><span class="bracket-player" style="color:var(--muted)">TBD</span><span class="bracket-score pending">—</span><span class="bracket-player right" style="color:var(--muted)">TBD</span></div>';
+        const score = m.home_score !== null
+          ? '<span class="bracket-score">' + m.home_score + ' – ' + m.away_score + '</span>'
+          : '<span class="bracket-score pending">vs</span>';
+        const isMyLeg = me && (m.home_username === me || m.away_username === me);
+        const canEnter = m.home_score === null && (isAdmin || isMyLeg);
+        const enterBtn = canEnter ? ' <button class="btn-enter" style="font-size:10px;padding:3px 8px" onclick="openModal(' + m.id + ',\'' + m.home_username + '\',\'' + m.away_username + '\')">+</button>' : '';
+        return '<div class="bracket-leg-row"><span class="bracket-leg-label">Leg ' + legNum + '</span>' +
+          '<span class="bracket-player">' + m.home_username + '</span>' +
+          score +
+          '<span class="bracket-player right">' + m.away_username + '</span>' +
+          enterBtn + '</div>';
+      }
+
+      const isDone = agg !== null;
+      return '<div class="bracket-pair-block ' + (isDone ? 'done' : 'active') + '">' +
+        legRow(l1, 1) + legRow(l2 || null, 2) + aggHtml + '</div>';
+    }
+
+    let html = '<div class="bracket-wrap">';
+    rounds.forEach(function(round, idx) {
+      const pairs = buildPairs(round);
+      const label = pairs[0].l1.round_label ? pairs[0].l1.round_label.replace(' — Leg 1','') : 'Round ' + (idx+1);
+      const isLast = idx === rounds.length - 1;
+
+      html += '<div class="bracket-col">';
+      html += '<div class="bracket-col-label">' + label + '</div>';
+      html += '<div class="bracket-slots">';
+      pairs.forEach(function(pair) {
+        html += pairHtml(pair, idx, isLast && pairs.length === 1);
+      });
+      html += '</div></div>';
+
+      // Connector between columns
+      if (idx < rounds.length - 1) {
+        html += '<div class="bracket-connector"><svg viewBox="0 0 40 100" preserveAspectRatio="none">';
+        const n = pairs.length;
+        for (let i = 0; i < n; i++) {
+          const y1 = (100 / n) * (i + 0.5);
+          const y2 = 50;
+          html += '<polyline points="0,' + y1 + ' 20,' + y1 + ' 20,' + y2 + ' 40,' + y2 + '" fill="none" stroke="#333" stroke-width="2"/>';
+        }
+        html += '</svg></div>';
+      }
+    });
+
+    // Champion box if last round is done
+    const lastRound = rounds[rounds.length - 1];
+    const lastPairs = buildPairs(lastRound);
+    if (lastPairs.length === 1) {
+      const agg = aggregateFor(lastPairs[0]);
+      const champName = agg ? (agg.h > agg.a ? agg.h1 : (agg.a > agg.h ? agg.h2 : agg.h1)) : '?';
+      html += '<div class="bracket-champion">' +
+        '<div class="trophy">🏆</div>' +
+        '<div class="champ-label">Champion</div>' +
+        '<div class="champ-name">' + (agg ? champName : '—') + '</div>' +
+        '</div>';
+    }
+
+    html += '</div>';
+    el.innerHTML = html;
+  }
+
+  // ── Modal ────────────────────────────────────────
+  function openModal(matchId, home, away) {
+    currentMatchId = matchId;
+    document.getElementById('modal-teams').innerHTML =
+      '<span class="modal-pname">' + home + '</span><span class="modal-vs">vs</span><span class="modal-pname">' + away + '</span>';
+    document.getElementById('score-home').value = 0;
+    document.getElementById('score-away').value = 0;
+    document.getElementById('modal-error').style.display = 'none';
+    document.getElementById('modal-overlay').style.display = 'flex';
+  }
+
+  function closeModal(e) {
+    if (e.target.id === 'modal-overlay') document.getElementById('modal-overlay').style.display = 'none';
+  }
+
+  async function submitResult() {
+    const hs = parseInt(document.getElementById('score-home').value);
+    const as_ = parseInt(document.getElementById('score-away').value);
+    const errEl = document.getElementById('modal-error');
+    errEl.style.display = 'none';
+    const res = await api('/api/match/' + currentMatchId + '/result', 'POST', { home_score: hs, away_score: as_ });
+    if (res.ok) {
+      document.getElementById('modal-overlay').style.display = 'none';
+      loadMatches();
+    } else {
+      errEl.textContent = res.error || 'Error submitting result.';
+      errEl.style.display = 'block';
+    }
+  }
+
+  async function doAdvance() {
+    const tid = localStorage.getItem('tournament_id');
+    const btn = document.getElementById('advance-btn');
+    btn.disabled = true;
+    btn.textContent = 'Working…';
+    const res = await api('/api/tournament/' + tid + '/advance-round', 'POST');
+    const el = document.getElementById('advance-result');
+    if (res.ok) {
+      el.textContent = res.finished ? ('🏆 Tournament finished! Winner: ' + res.winner) : ('✅ Advanced to ' + res.round_name + '!');
+      el.style.background = 'var(--gold)18';
+      el.style.color = 'var(--gold)';
+      document.getElementById('advance-banner').style.display = 'none';
+      el.style.display = 'block';
+      setTimeout(loadMatches, 600);
+    } else {
+      el.textContent = res.error || 'Error advancing round.';
+      el.style.background = '#2a1010';
+      el.style.color = '#e74c3c';
+      el.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Generate Final →';
+    }
+  }
+
+  function checkAdvanceBanner(matches, isAdmin) {
+    if (!isAdmin) return;
+    const banner = document.getElementById('advance-banner');
+    if (!banner) return;
+    if (!matches.length) { banner.style.display = 'none'; return; }
+    const maxMd = Math.max(...matches.map(function(m){return m.matchday;}));
+    // Check: all matches in current round (last 2 matchdays) have results
+    const curRound = matches.filter(function(m){return m.matchday >= maxMd - 1;});
+    const allDone  = curRound.length > 0 && curRound.every(function(m){return m.home_score !== null;});
+    // Only show banner if there is no future round with pending matches
+    const futurePending = matches.filter(function(m){return m.matchday > maxMd && m.home_score === null;}).length > 0;
+    banner.style.display = (allDone && !futurePending) ? 'block' : 'none';
+  }
+
+  loadMatches();
+</script>
+{% endblock %}

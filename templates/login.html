@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Join Tournament</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body class="auth-page">
+
+  <div class="auth-card">
+    <div class="auth-logo">🏆</div>
+    <h1 class="auth-title">FC26 Tournament</h1>
+    <p class="auth-sub" id="auth-sub">Log in to continue</p>
+
+    <div class="tab-row">
+      <button class="tab-btn active" onclick="switchAuthTab('login')">Log in</button>
+      <button class="tab-btn"        onclick="switchAuthTab('register')">Create account</button>
+    </div>
+
+    <div id="error-msg" class="error-msg" style="display:none"></div>
+
+    <form id="auth-form" onsubmit="submitAuth(event)">
+      <div class="form-group">
+        <label class="form-label">Username</label>
+        <input class="form-input" type="text" id="input-username" autocomplete="username" placeholder="your name" required />
+      </div>
+      <div class="form-group">
+        <label class="form-label">4-digit PIN</label>
+        <input class="form-input pin-input" type="password" id="input-pin"
+               inputmode="numeric" maxlength="4" placeholder="••••" required />
+      </div>
+      <button type="submit" class="btn-primary" id="submit-btn">Log in</button>
+    </form>
+
+    <p class="auth-hint">Don't have a link? Ask your tournament admin.</p>
+  </div>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+  <script>
+    const INVITE_CODE = "{{ invite_code if invite_code else '' }}";
+    let authMode = 'login';
+
+    function switchAuthTab(mode) {
+      authMode = mode;
+      document.querySelectorAll('.tab-btn').forEach((b, i) => {
+        b.classList.toggle('active', (mode === 'login' && i === 0) || (mode === 'register' && i === 1));
+      });
+      document.getElementById('submit-btn').textContent = mode === 'login' ? 'Log in' : 'Create account';
+      document.getElementById('auth-sub').textContent   = mode === 'login' ? 'Log in to continue' : 'Pick a username and PIN';
+      hideError();
+    }
+
+    async function submitAuth(e) {
+      e.preventDefault();
+      hideError();
+      const username = document.getElementById('input-username').value.trim();
+      const pin      = document.getElementById('input-pin').value;
+
+      if (pin.length !== 4 || !/^\d{4}$/.test(pin)) {
+        showError('PIN must be exactly 4 digits.');
+        return;
+      }
+
+      const endpoint = authMode === 'login' ? '/api/login' : '/api/register';
+      const res = await api(endpoint, 'POST', { username, pin });
+
+      if (res.ok) {
+        localStorage.setItem('username', res.username);
+        localStorage.setItem('is_admin', res.is_admin || 0);
+
+        if (INVITE_CODE) {
+          // Join the tournament this link belongs to
+          const t = await api(`/api/tournament/by-code/${INVITE_CODE}`);
+          if (t.id) {
+            await api(`/api/tournament/${t.id}/join`, 'POST');
+            localStorage.setItem('tournament_id', t.id);
+            localStorage.setItem('tournament_name', t.name);
+          }
+        }
+        window.location.href = '/dashboard';
+      } else {
+        showError(res.error || 'Something went wrong.');
+      }
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('error-msg');
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+    function hideError() {
+      document.getElementById('error-msg').style.display = 'none';
+    }
+
+    // If already logged in, go to dashboard
+    (async () => {
+      const me = await api('/api/me');
+      if (me.logged_in) window.location.href = '/dashboard';
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,339 @@
+{% extends "base.html" %}
+{% block title %}Manage Tournament{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2 class="page-title">Manage Tournament</h2>
+  <button class="btn-ghost-sm" onclick="loadAll()">↻ Refresh</button>
+</div>
+
+<!-- Info bar -->
+<div class="card" style="padding:1rem 1.25rem;display:flex;gap:1.5rem;flex-wrap:wrap;align-items:center;margin-bottom:0" id="t-info-bar">
+  <span id="t-info-name" style="font-weight:700;font-size:1.05rem">—</span>
+  <span id="t-info-type" style="padding:2px 10px;border-radius:12px;font-size:0.8rem;font-weight:600;background:var(--gold)22;color:var(--gold)">—</span>
+  <span id="t-info-status" style="font-size:0.85rem;color:var(--muted)">—</span>
+  <span id="t-info-players" style="font-size:0.85rem;color:var(--muted)">—</span>
+</div>
+
+<!-- Supercup advance-round control -->
+<div id="supercup-controls" style="display:none;margin-top:1rem">
+  <div class="card" style="border-color:var(--gold)44">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <div>
+        <div style="font-weight:700">Supercup round control</div>
+        <div class="hint-text" id="supercup-round-label">—</div>
+        <div id="missing-warn" style="display:none;margin-top:4px;font-size:0.78rem;color:#e67e22">⚠️ Missing results will be counted as 0–0 (walkover).</div>
+      </div>
+      <button class="btn-primary" id="advance-btn-manage" onclick="advanceRound()">Advance to next round →</button>
+    </div>
+    <div id="advance-msg" style="display:none;margin-top:8px;font-size:0.88rem"></div>
+  </div>
+</div>
+
+<!-- Participants -->
+<div class="card" style="margin-top:1rem">
+  <div class="step-header" style="margin-bottom:1rem">
+    <span class="step-title">Players &amp; Teams</span>
+  </div>
+  <div id="participants-list" style="display:flex;flex-wrap:wrap;gap:8px">
+    <p class="empty-msg">Loading…</p>
+  </div>
+</div>
+
+<!-- Supercup bracket view (admin) -->
+<div id="bracket-admin-wrap" style="display:none;margin-top:1rem">
+  <div class="card" style="padding:0;overflow:hidden">
+    <div style="padding:0.85rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <span class="step-title">Bracket overview</span>
+      <span style="font-size:0.8rem;color:var(--muted)">Click + to enter results inline</span>
+    </div>
+    <div id="bracket-admin-view"></div>
+  </div>
+</div>
+
+<!-- All Matches — editable list -->
+<div class="card" style="margin-top:1rem;padding:0;overflow:hidden">
+  <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+    <span class="step-title">All Matches</span>
+    <div class="matchday-filter" id="manage-md-filter" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+  </div>
+  <div id="manage-matches-list" style="padding:1rem">
+    <p class="empty-msg">Loading…</p>
+  </div>
+</div>
+
+<!-- Danger zone -->
+<div style="margin-top:2rem; padding-top:1.5rem; border-top:1px solid var(--border)">
+  <p class="hint-text" style="margin-bottom:0.75rem">⚠️ Danger zone — irreversible actions</p>
+  <button class="btn-secondary" style="border-color:#c0392b55; color:#e74c3c" onclick="deleteTournament()">Delete current tournament</button>
+  <div id="delete-error" class="error-msg" style="display:none; margin-top:0.5rem"></div>
+</div>
+
+<!-- Edit modal -->
+<div id="edit-modal" class="modal-overlay" style="display:none" onclick="closeEditModal(event)">
+  <div class="modal-box">
+    <h3 class="modal-title">Edit result</h3>
+    <div class="modal-teams" id="edit-modal-teams"></div>
+    <div class="score-row">
+      <input class="score-input" type="number" id="edit-home" min="0" max="30" value="0"/>
+      <span class="score-sep">—</span>
+      <input class="score-input" type="number" id="edit-away" min="0" max="30" value="0"/>
+    </div>
+    <div id="edit-modal-error" class="error-msg" style="display:none"></div>
+    <button class="btn-primary" onclick="saveEditResult()">Save</button>
+    <button class="btn-ghost" onclick="document.getElementById('edit-modal').style.display='none'" style="margin-top:8px">Cancel</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  let tid = localStorage.getItem('tournament_id');
+  let allMatches = [], editMatchId = null, tInfo = null;
+
+  async function loadAll() {
+    if (!tid) { document.getElementById('t-info-name').textContent = 'No active tournament'; return; }
+    const [info, parts, matches] = await Promise.all([
+      api('/api/tournament/' + tid + '/info'),
+      api('/api/tournament/' + tid + '/participants'),
+      api('/api/tournament/' + tid + '/matches')
+    ]);
+    tInfo = info; allMatches = matches || [];
+    renderInfoBar(info, parts);
+    renderParticipants(parts);
+    const isSupercup = info && info.tournament_type === 'supercup';
+    if (isSupercup) {
+      document.getElementById('bracket-admin-wrap').style.display = 'block';
+      renderBracketAdmin(allMatches);
+    } else {
+      document.getElementById('bracket-admin-wrap').style.display = 'none';
+    }
+    renderMatches(allMatches, isSupercup);
+    renderSupercupControls(info, allMatches);
+  }
+
+  function renderInfoBar(info, parts) {
+    document.getElementById('t-info-name').textContent = info.name || '—';
+    document.getElementById('t-info-type').textContent = info.tournament_type === 'supercup' ? '🥇 Super Cup' : '🏆 Championnat';
+    document.getElementById('t-info-status').textContent = 'Status: ' + (info.status || '—');
+    document.getElementById('t-info-players').textContent = parts.length + ' players';
+  }
+
+  function renderParticipants(parts) {
+    const el = document.getElementById('participants-list');
+    if (!parts.length) { el.innerHTML = '<p class="empty-msg">No participants yet.</p>'; return; }
+    el.innerHTML = parts.map(function(p) {
+      const team = p.team_name || 'No team', stars = p.team_stars ? p.team_stars + '⭐' : '';
+      return '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;background:var(--surface2);min-width:160px">' +
+        '<span style="width:32px;height:32px;border-radius:50%;background:' + avatarColor(p.username) + ';display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700">' + initials(p.username) + '</span>' +
+        '<div><div style="font-weight:600;font-size:0.9rem">' + p.username + '</div><div style="font-size:0.78rem;color:var(--muted)">' + team + ' ' + stars + '</div></div></div>';
+    }).join('');
+  }
+
+  function renderSupercupControls(info, matches) {
+    const ctrl = document.getElementById('supercup-controls');
+    if (!info || info.tournament_type !== 'supercup' || info.status === 'finished') { ctrl.style.display = 'none'; return; }
+    ctrl.style.display = 'block';
+    const maxMd = Math.max(...matches.map(function(m) { return m.matchday; }), 1);
+    const curRound = matches.filter(function(m) { return m.matchday >= maxMd - 1; });
+    const done  = curRound.filter(function(m) { return m.home_score !== null; }).length;
+    const total = curRound.length;
+    document.getElementById('supercup-round-label').textContent = done + ' / ' + total + ' results in for this round';
+    const warnEl = document.getElementById('missing-warn');
+    if (warnEl) warnEl.style.display = done < total ? 'block' : 'none';
+    const btn = document.getElementById('advance-btn-manage');
+    if (btn) btn.textContent = done < total ? 'Force advance (walkover missing) →' : 'Advance to next round →';
+  }
+
+  // ── Bracket admin ────────────────────────────────
+  function renderBracketAdmin(matches) {
+    const el = document.getElementById('bracket-admin-view');
+    const maxMd = Math.max(...matches.map(function(m) { return m.matchday; }), 0);
+    const rounds = [];
+    for (let leg1Md = 1; leg1Md <= maxMd; leg1Md += 2) {
+      const leg2Md = leg1Md + 1;
+      const leg1 = matches.filter(function(m) { return m.matchday === leg1Md; });
+      const leg2 = matches.filter(function(m) { return m.matchday === leg2Md; });
+      if (leg1.length) rounds.push({ leg1, leg2 });
+    }
+    if (!rounds.length) { el.innerHTML = '<p class="empty-msg" style="padding:1rem">No matches yet.</p>'; return; }
+
+    function buildPairs(round) {
+      return round.leg1.map(function(l1) {
+        const l2 = (round.leg2 || []).find(function(m) {
+          return m.home_participant_id === l1.away_participant_id && m.away_participant_id === l1.home_participant_id;
+        });
+        return { l1, l2 };
+      });
+    }
+
+    function aggFor(pair) {
+      if (!pair.l1 || !pair.l2 || pair.l1.home_score === null || pair.l2.home_score === null) return null;
+      return {
+        h1: pair.l1.home_username, h2: pair.l1.away_username,
+        h: pair.l1.home_score + pair.l2.away_score,
+        a: pair.l1.away_score + pair.l2.home_score
+      };
+    }
+
+    function legRow(m, legNum) {
+      if (!m) return '<div class="bracket-leg-row"><span class="bracket-leg-label">Leg ' + legNum + '</span><span class="bracket-player" style="color:var(--muted)">TBD</span><span class="bracket-score pending">—</span><span class="bracket-player right" style="color:var(--muted)">TBD</span></div>';
+      const sc = m.home_score !== null
+        ? '<span class="bracket-score">' + m.home_score + ' – ' + m.away_score + '</span>'
+        : '<span class="bracket-score pending">vs</span>';
+      const enterBtn = '<button class="btn-ghost-sm" style="font-size:10px;padding:2px 8px;margin-left:4px" onclick="openEditModal(' + m.id + ',\'' + m.home_username + '\',\'' + m.away_username + '\',' + (m.home_score||0) + ',' + (m.away_score||0) + ')">' + (m.home_score !== null ? '✏️' : '+') + '</button>';
+      return '<div class="bracket-leg-row"><span class="bracket-leg-label">Leg ' + legNum + '</span>' +
+        '<span class="bracket-player">' + m.home_username + '</span>' + sc +
+        '<span class="bracket-player right">' + m.away_username + '</span>' + enterBtn + '</div>';
+    }
+
+    function pairHtml(pair, isLastRound) {
+      const agg = aggFor(pair);
+      let aggHtml;
+      if (agg) {
+        const w = agg.h > agg.a ? agg.h1 : agg.h2;
+        aggHtml = '<div class="bracket-agg winner">' + (isLastRound ? '🏆 ' : '→ ') + w + ' &nbsp;<span style="font-weight:400;color:var(--muted)">(' + agg.h1 + ' ' + agg.h + '–' + agg.a + ' ' + agg.h2 + ' agg)</span></div>';
+      } else {
+        aggHtml = '<div class="bracket-agg">Aggregate pending</div>';
+      }
+      return '<div class="bracket-pair-block ' + (agg ? 'done' : 'active') + '">' + legRow(pair.l1, 1) + legRow(pair.l2 || null, 2) + aggHtml + '</div>';
+    }
+
+    let html = '<div class="bracket-wrap">';
+    rounds.forEach(function(round, idx) {
+      const pairs = buildPairs(round);
+      const label = pairs[0].l1.round_label ? pairs[0].l1.round_label.replace(' — Leg 1','') : 'Round ' + (idx+1);
+      const isLast = idx === rounds.length - 1;
+      html += '<div class="bracket-col"><div class="bracket-col-label">' + label + '</div><div class="bracket-slots">';
+      pairs.forEach(function(pair) { html += pairHtml(pair, isLast && pairs.length === 1); });
+      html += '</div></div>';
+      if (idx < rounds.length - 1) {
+        html += '<div class="bracket-connector"><svg viewBox="0 0 40 100" preserveAspectRatio="none">';
+        const n = pairs.length;
+        for (let i = 0; i < n; i++) {
+          const y1 = (100 / n) * (i + 0.5), y2 = 50;
+          html += '<polyline points="0,' + y1 + ' 20,' + y1 + ' 20,' + y2 + ' 40,' + y2 + '" fill="none" stroke="#333" stroke-width="2"/>';
+        }
+        html += '</svg></div>';
+      }
+    });
+    const lastRound = rounds[rounds.length - 1];
+    const lastPairs = buildPairs(lastRound);
+    if (lastPairs.length === 1) {
+      const agg = aggFor(lastPairs[0]);
+      const champName = agg ? (agg.h > agg.a ? agg.h1 : agg.h2) : '—';
+      html += '<div class="bracket-champion"><div class="trophy">🏆</div><div class="champ-label">Champion</div><div class="champ-name">' + champName + '</div></div>';
+    }
+    html += '</div>';
+    el.innerHTML = html;
+  }
+
+  // ── Match list ────────────────────────────────────
+  function renderMatches(matches, isSupercup) {
+    const matchdays = [...new Set(matches.map(function(m) { return m.matchday; }))].sort(function(a,b){return a-b;});
+    const filterEl  = document.getElementById('manage-md-filter');
+    const half = Math.ceil(matchdays.length / 2);
+    filterEl.innerHTML = matchdays.map(function(md) {
+      let label;
+      if (isSupercup) label = 'Leg ' + md;
+      else label = md <= half ? '1H MD' + md : '2H MD' + (md - half);
+      return '<button class="md-btn" id="mmd-btn-' + md + '" onclick="filterMD(' + md + ')">' + label + '</button>';
+    }).join('');
+    showMatches(matches, isSupercup);
+  }
+
+  function filterMD(md) {
+    document.querySelectorAll('#manage-md-filter .md-btn').forEach(function(b) { b.classList.remove('active'); });
+    var btn = document.getElementById('mmd-btn-' + md);
+    if (btn) btn.classList.add('active');
+    showMatches(allMatches.filter(function(m) { return m.matchday === md; }), tInfo && tInfo.tournament_type === 'supercup');
+  }
+
+  function showMatches(matches, isSupercup) {
+    const el = document.getElementById('manage-matches-list');
+    if (!matches.length) { el.innerHTML = '<p class="empty-msg">No matches.</p>'; return; }
+    el.innerHTML = matches.map(function(m) {
+      const done = m.home_score !== null;
+      const score = done
+        ? '<span style="font-weight:700;font-size:1.1rem;color:var(--gold)">' + m.home_score + ' — ' + m.away_score + '</span>'
+        : '<span style="color:var(--muted)">vs</span>';
+      const editBtn = '<button class="btn-ghost-sm" style="font-size:0.78rem" onclick="openEditModal(' + m.id + ',\'' + m.home_username + '\',\'' + m.away_username + '\',' + (done ? m.home_score : 0) + ',' + (done ? m.away_score : 0) + ')">' + (done ? '✏️ Edit' : '+ Enter') + '</button>';
+      const mdLabel = isSupercup
+        ? ((m.round_label || 'Round') + ' Leg ' + (m.leg || '?'))
+        : 'MD ' + m.matchday;
+      return '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)11;flex-wrap:wrap">' +
+        '<span style="font-size:0.78rem;color:var(--muted);min-width:100px">' + mdLabel + '</span>' +
+        '<div style="flex:1;display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
+          '<div style="min-width:90px;text-align:right"><div style="font-weight:600">' + m.home_username + '</div><div style="font-size:0.75rem;color:var(--muted)">' + (m.home_team || '—') + '</div></div>' +
+          score +
+          '<div style="min-width:90px"><div style="font-weight:600">' + m.away_username + '</div><div style="font-size:0.75rem;color:var(--muted)">' + (m.away_team || '—') + '</div></div>' +
+        '</div>' + editBtn + '</div>';
+    }).join('');
+  }
+
+  function openEditModal(matchId, home, away, homeScore, awayScore) {
+    editMatchId = matchId;
+    document.getElementById('edit-modal-teams').innerHTML =
+      '<span class="modal-pname">' + home + '</span><span class="modal-vs">vs</span><span class="modal-pname">' + away + '</span>';
+    document.getElementById('edit-home').value = homeScore;
+    document.getElementById('edit-away').value = awayScore;
+    document.getElementById('edit-modal-error').style.display = 'none';
+    document.getElementById('edit-modal').style.display = 'flex';
+  }
+
+  function closeEditModal(e) {
+    if (e.target.id === 'edit-modal') document.getElementById('edit-modal').style.display = 'none';
+  }
+
+  async function saveEditResult() {
+    const home_score = parseInt(document.getElementById('edit-home').value);
+    const away_score = parseInt(document.getElementById('edit-away').value);
+    const errEl = document.getElementById('edit-modal-error');
+    errEl.style.display = 'none';
+    const res = await api('/api/match/' + editMatchId + '/result', 'POST', { home_score, away_score });
+    if (res.ok) {
+      document.getElementById('edit-modal').style.display = 'none';
+      loadAll();
+    } else {
+      errEl.textContent = res.error || 'Error saving result.';
+      errEl.style.display = 'block';
+    }
+  }
+
+  async function advanceRound() {
+    const msgEl = document.getElementById('advance-msg');
+    msgEl.style.display = 'none';
+    const res = await api('/api/tournament/' + tid + '/advance-round', 'POST');
+    if (res.ok) {
+      msgEl.textContent = res.finished ? '🏆 Tournament finished! Winner: ' + res.winner : 'Advanced to ' + res.round_name + '!';
+      msgEl.style.color = 'var(--gold)';
+      msgEl.style.display = 'block';
+      loadAll();
+    } else {
+      msgEl.textContent = res.error || 'Error advancing round.';
+      msgEl.style.color = '#e74c3c';
+      msgEl.style.display = 'block';
+    }
+  }
+
+  async function deleteTournament() {
+    if (!tid) { alert('No active tournament to delete.'); return; }
+    if (!confirm('Delete the current tournament and ALL its data?\nThis cannot be undone.')) return;
+    const errEl = document.getElementById('delete-error');
+    errEl.style.display = 'none';
+    const res = await api('/api/tournament/' + tid + '/delete', 'DELETE');
+    if (res.ok) {
+      localStorage.removeItem('tournament_id');
+      localStorage.removeItem('tournament_name');
+      tid = null;
+      alert('Tournament deleted.');
+      location.href = '/admin';
+    } else {
+      errEl.textContent = res.error || 'Error deleting tournament.';
+      errEl.style.display = 'block';
+    }
+  }
+
+  loadAll();
+</script>
+{% endblock %}

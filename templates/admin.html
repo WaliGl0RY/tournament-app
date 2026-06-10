@@ -1,0 +1,455 @@
+{% extends "base.html" %}
+{% block title %}Create Tournament{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2 class="page-title">Create Tournament</h2>
+</div>
+
+<!-- ── Step 1: Create ─────────────────────────────── -->
+<div class="card admin-step" id="step-create">
+  <div class="step-header">
+    <span class="step-num">1</span>
+    <span class="step-title">New tournament</span>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Tournament name</label>
+    <input class="form-input" type="text" id="t-name" placeholder="e.g. FC26 Season 3" />
+  </div>
+  <div class="form-group">
+    <label class="form-label">Tournament format</label>
+    <div style="display:flex; gap:10px; flex-wrap:wrap">
+      <label class="type-option" id="type-championnat" onclick="selectType('championnat')" style="flex:1;min-width:160px;padding:12px 14px;border:2px solid var(--gold);border-radius:8px;cursor:pointer;background:var(--gold)1a">
+        <div style="font-weight:700;margin-bottom:4px">🏆 Championnat</div>
+        <div style="font-size:0.8rem;color:var(--muted)">Round-robin league — everyone plays everyone. Points: W=3, D=1, L=0. Ranked by table.</div>
+      </label>
+      <label class="type-option" id="type-supercup" onclick="selectType('supercup')" style="flex:1;min-width:160px;padding:12px 14px;border:2px solid var(--border);border-radius:8px;cursor:pointer">
+        <div style="font-weight:700;margin-bottom:4px">🥇 Super Cup</div>
+        <div style="font-size:0.8rem;color:var(--muted)">Knockout bracket — single elimination. Win or go home. Admin advances each round.</div>
+      </label>
+    </div>
+    <input type="hidden" id="t-type" value="championnat" />
+  </div>
+  <div class="form-group">
+    <label class="form-label">Match format</label>
+    <div style="display:flex; gap:10px; flex-wrap:wrap">
+      <label id="legs-2" onclick="selectLegs(2)" style="flex:1;min-width:140px;padding:10px 14px;border:2px solid var(--gold);border-radius:8px;cursor:pointer;background:var(--gold)1a">
+        <div style="font-weight:700;margin-bottom:3px">🔁 2 Legs</div>
+        <div style="font-size:0.78rem;color:var(--muted)">Home & away — each pair plays twice.</div>
+      </label>
+      <label id="legs-1" onclick="selectLegs(1)" style="flex:1;min-width:140px;padding:10px 14px;border:2px solid var(--border);border-radius:8px;cursor:pointer">
+        <div style="font-weight:700;margin-bottom:3px">⚡ 1 Leg</div>
+        <div style="font-size:0.78rem;color:var(--muted)">Single match per pair — quick format.</div>
+      </label>
+    </div>
+    <input type="hidden" id="t-legs" value="2" />
+  </div>
+  <div class="form-group">
+    <label class="form-label">Number of players (3 – 15)</label>
+    <input class="form-input" type="number" id="t-max-players" min="3" max="15" value="8" placeholder="e.g. 8" />
+  </div>
+  <button class="btn-primary" onclick="createTournament()">Create &amp; get invite link</button>
+  <div id="invite-box" style="display:none; margin-top:1rem">
+    <label class="form-label">Invite link — share with friends</label>
+    <div class="invite-link-row">
+      <input class="form-input" type="text" id="invite-link" readonly />
+      <button class="btn-copy" onclick="copyLink()">Copy</button>
+    </div>
+    <p class="hint-text" id="invite-hint"></p>
+  </div>
+  <div id="create-error" class="error-msg" style="display:none"></div>
+</div>
+
+<!-- ── Step 2: Add players ────────────────────────── -->
+<div class="card admin-step" id="step-players">
+  <div class="step-header">
+    <span class="step-num">2</span>
+    <span class="step-title">Add players</span>
+  </div>
+  <p class="hint-text" style="margin-bottom:1rem">
+    Share the invite link, or add registered players directly.
+    In tournament: <strong id="current-count">—</strong> / <strong id="current-max">—</strong>
+  </p>
+  <button class="btn-secondary" id="picker-btn" style="margin-bottom:1rem" onclick="openPlayerPicker()">+ Select players</button>
+  <div id="player-list" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:0.5rem"></div>
+  <div id="add-player-msg" style="display:none; font-size:0.88rem; margin-top:4px"></div>
+
+  <!-- Smooth dropdown picker -->
+  <div id="player-picker" style="
+      display:none; position:fixed; z-index:9999;
+      background:#1c1c1c; border:1px solid var(--gold)55;
+      border-radius:10px; box-shadow:0 12px 40px #000e;
+      width:300px; max-height:320px; overflow:hidden;
+      flex-direction:column;
+      opacity:0; transform:translateY(-6px);
+      transition:opacity .16s ease, transform .16s ease;">
+    <div style="padding:10px 12px; border-bottom:1px solid #333; background:#1c1c1c">
+      <input class="form-input" id="picker-search" placeholder="Search…" oninput="filterPicker()" style="margin:0;background:#111;border-color:#444" />
+    </div>
+    <div id="picker-list" style="overflow-y:auto; max-height:240px; padding:6px; background:#1c1c1c"></div>
+  </div>
+</div>
+
+<!-- ── Step 3: Assign teams ───────────────────────── -->
+<div class="card admin-step" id="step-teams">
+  <div class="step-header">
+    <span class="step-num">3</span>
+    <span class="step-title">Assign teams</span>
+  </div>
+  <p class="hint-text" style="margin-bottom:1rem">
+    Players: <strong id="player-count">—</strong> / <strong id="player-max">—</strong>
+  </p>
+  <div class="filter-grid">
+    <div class="form-group">
+      <label class="form-label">Team type</label>
+      <select class="form-input" id="f-type">
+        <option value="">All</option>
+        <option value="club">Clubs</option>
+        <option value="national">National teams</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Min stars</label>
+      <select class="form-input" id="f-min">
+        <option value="">Any</option>
+        <option value="2">2.0 ⭐</option>
+        <option value="2.5">2.5 ⭐</option>
+        <option value="3">3.0 ⭐</option>
+        <option value="3.5">3.5 ⭐</option>
+        <option value="4">4.0 ⭐</option>
+        <option value="4.5">4.5 ⭐</option>
+        <option value="5">5.0 ⭐</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Max stars</label>
+      <select class="form-input" id="f-max">
+        <option value="">Any</option>
+        <option value="2">2.0 ⭐</option>
+        <option value="2.5">2.5 ⭐</option>
+        <option value="3">3.0 ⭐</option>
+        <option value="3.5">3.5 ⭐</option>
+        <option value="4">4.0 ⭐</option>
+        <option value="4.5">4.5 ⭐</option>
+        <option value="5">5.0 ⭐</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">League</label>
+      <select class="form-input" id="f-league">
+        <option value="">All leagues</option>
+      </select>
+    </div>
+  </div>
+  <div id="teams-preview" class="teams-preview"></div>
+  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+    <button class="btn-secondary" onclick="previewTeams()">Preview teams</button>
+    <button class="btn-primary" style="flex:1" onclick="assignTeams()">Assign teams</button>
+  </div>
+  <div id="assign-result" style="display:none; margin-top:1rem"></div>
+  <div id="teams-error" class="error-msg" style="display:none"></div>
+</div>
+
+<!-- ── Step 4: Start ──────────────────────────────── -->
+<div class="card admin-step" id="step-start">
+  <div class="step-header">
+    <span class="step-num">4</span>
+    <span class="step-title">Start tournament</span>
+  </div>
+  <p class="hint-text">Generates the full round-robin schedule. No players can join after this.</p>
+  <button class="btn-primary btn-start" style="margin-top:1rem" onclick="startTournament()">Generate schedule &amp; start</button>
+  <div id="start-result" style="display:none; margin-top:1rem"></div>
+  <div id="start-error" class="error-msg" style="display:none"></div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  let activeTid = localStorage.getItem('tournament_id');
+  let allUsers  = [];
+  let pickerOpen = false;
+
+  // ── Create ────────────────────────────────────────
+  let selectedType = 'championnat';
+
+  let selectedLegs = 2;
+
+  function selectLegs(n) {
+    selectedLegs = n;
+    document.getElementById('t-legs').value = n;
+    document.getElementById('legs-2').style.borderColor = n === 2 ? 'var(--gold)' : 'var(--border)';
+    document.getElementById('legs-2').style.background  = n === 2 ? 'var(--gold)1a' : '';
+    document.getElementById('legs-1').style.borderColor = n === 1 ? 'var(--gold)' : 'var(--border)';
+    document.getElementById('legs-1').style.background  = n === 1 ? 'var(--gold)1a' : '';
+  }
+
+  function selectType(type) {
+    selectedType = type;
+    document.getElementById('t-type').value = type;
+    document.getElementById('type-championnat').style.borderColor = type === 'championnat' ? 'var(--gold)' : 'var(--border)';
+    document.getElementById('type-championnat').style.background  = type === 'championnat' ? 'var(--gold)1a' : '';
+    document.getElementById('type-supercup').style.borderColor    = type === 'supercup'    ? 'var(--gold)' : 'var(--border)';
+    document.getElementById('type-supercup').style.background     = type === 'supercup'    ? 'var(--gold)1a' : '';
+  }
+
+  async function createTournament() {
+    const name   = document.getElementById('t-name').value.trim();
+    const errEl  = document.getElementById('create-error');
+    errEl.style.display = 'none';
+    if (!name) { errEl.textContent = 'Enter a tournament name.'; errEl.style.display = 'block'; return; }
+    const max_players = parseInt(document.getElementById('t-max-players').value);
+    if (!max_players || max_players < 3 || max_players > 15) {
+      errEl.textContent = 'Number of players must be between 3 and 15.';
+      errEl.style.display = 'block'; return;
+    }
+    const tournament_type = selectedType;
+    const legs = selectedLegs;
+    const res = await api('/api/tournament/create', 'POST', { name, max_players, tournament_type, legs });
+    if (res.ok) localStorage.setItem('tournament_type', tournament_type);
+    if (res.ok) {
+      activeTid = res.tournament_id;
+      localStorage.setItem('tournament_id', activeTid);
+      localStorage.setItem('tournament_name', name);
+      const me = await api('/api/me');
+      localStorage.setItem('username', me.username || '');
+      const link = location.origin + '/join/' + res.invite_code;
+      document.getElementById('invite-link').value = link;
+      localStorage.setItem('invite_link', link);
+      document.getElementById('invite-box').style.display = 'block';
+      document.getElementById('invite-hint').textContent =
+        'Share this link — up to ' + max_players + ' players can join.';
+      refreshPlayerList();
+      loadLeagues();
+    } else {
+      errEl.textContent = res.error || 'Error creating tournament.';
+      errEl.style.display = 'block';
+    }
+  }
+
+  function copyLink() {
+    const el = document.getElementById('invite-link');
+    el.select(); el.setSelectionRange(0, 9999);
+    document.execCommand('copy');
+  }
+
+  // ── Player picker ─────────────────────────────────
+  async function openPlayerPicker() {
+    if (!activeTid) { alert('Create a tournament first.'); return; }
+    const picker = document.getElementById('player-picker');
+    if (pickerOpen) { closePicker(); return; }
+
+    const [users, parts] = await Promise.all([
+      api('/api/users'),
+      api('/api/tournament/' + activeTid + '/participants')
+    ]);
+    const inTournament = new Set(parts.map(function(p) { return p.user_id; }));
+    allUsers = (users || []).filter(function(u) { return !inTournament.has(u.id); });
+    renderPicker(allUsers);
+
+    const btn  = document.getElementById('picker-btn');
+    const rect = btn.getBoundingClientRect();
+    const pickerH = 320;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const top = spaceBelow >= pickerH + 8
+      ? rect.bottom + 6
+      : rect.top - pickerH - 6;
+    const left = Math.min(rect.left, window.innerWidth - 310);
+    picker.style.top  = top + 'px';
+    picker.style.left = left + 'px';
+    picker.style.display = 'flex';
+    requestAnimationFrame(function() {
+      picker.style.opacity = '1';
+      picker.style.transform = 'translateY(0)';
+    });
+    pickerOpen = true;
+    document.getElementById('picker-search').value = '';
+    document.getElementById('picker-search').focus();
+  }
+
+  function closePicker() {
+    const picker = document.getElementById('player-picker');
+    picker.style.opacity = '0';
+    picker.style.transform = 'translateY(-6px)';
+    setTimeout(function() { picker.style.display = 'none'; }, 160);
+    pickerOpen = false;
+  }
+
+  function renderPicker(users) {
+    const list = document.getElementById('picker-list');
+    if (!users.length) {
+      list.innerHTML = '<p style="padding:8px 10px;color:var(--muted);font-size:0.85rem">No more players to add.</p>';
+      return;
+    }
+    list.innerHTML = '';
+    users.forEach(function(u) {
+      const div = document.createElement('div');
+      div.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:7px;cursor:pointer';
+      div.addEventListener('mouseover', function() { this.style.background = '#2e2e2e'; });
+      div.addEventListener('mouseout',  function() { this.style.background = ''; });
+      div.addEventListener('click',     function() { addPlayerById(u.id, u.username); });
+      div.innerHTML =
+        '<span style="width:30px;height:30px;border-radius:50%;background:' + avatarColor(u.username) +
+        ';display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700;flex-shrink:0">' +
+        initials(u.username) + '</span>' +
+        '<span style="font-size:0.92rem">' + u.username + '</span>';
+      list.appendChild(div);
+    });
+  }
+
+  function filterPicker() {
+    const q = document.getElementById('picker-search').value.toLowerCase();
+    renderPicker(allUsers.filter(function(u) { return u.username.toLowerCase().includes(q); }));
+  }
+
+  async function addPlayerById(userId, username) {
+    const msgEl = document.getElementById('add-player-msg');
+    msgEl.style.display = 'none';
+    const res = await api('/api/tournament/' + activeTid + '/add-player', 'POST', { username: username });
+    if (res.ok) {
+      msgEl.textContent = username + ' added!';
+      msgEl.style.color = 'var(--gold)';
+      msgEl.style.display = 'block';
+      allUsers = allUsers.filter(function(u) { return u.id !== userId; });
+      renderPicker(allUsers);
+      refreshPlayerList();
+      if (!allUsers.length) closePicker();
+    } else {
+      msgEl.textContent = res.error || 'Error.';
+      msgEl.style.color = '#e74c3c';
+      msgEl.style.display = 'block';
+    }
+  }
+
+  document.addEventListener('click', function(e) {
+    if (!pickerOpen) return;
+    const picker = document.getElementById('player-picker');
+    const btn    = document.getElementById('picker-btn');
+    if (!picker.contains(e.target) && e.target !== btn) closePicker();
+  });
+
+  // ── Player list refresh ───────────────────────────
+  async function refreshPlayerList() {
+    if (!activeTid) return;
+    const [players, info] = await Promise.all([
+      api('/api/tournament/' + activeTid + '/participants'),
+      api('/api/tournament/' + activeTid + '/info')
+    ]);
+    document.getElementById('current-count').textContent = players.length;
+    document.getElementById('current-max').textContent   = info.max_players || '?';
+    document.getElementById('player-count').textContent  = players.length;
+    document.getElementById('player-max').textContent    = info.max_players || '?';
+    const listEl = document.getElementById('player-list');
+    if (listEl) {
+      listEl.innerHTML = players.map(function(p) {
+        return (
+          '<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:var(--surface2);font-size:0.85rem">' +
+          '<span style="width:22px;height:22px;border-radius:50%;background:' + avatarColor(p.username) +
+          ';display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:700">' +
+          initials(p.username) + '</span>' + p.username + '</span>'
+        );
+      }).join('');
+    }
+  }
+
+  async function loadLeagues() {
+    const leagues = await api('/api/teams/leagues');
+    const sel = document.getElementById('f-league');
+    // clear old options except first
+    while (sel.options.length > 1) sel.remove(1);
+    (leagues || []).forEach(function(l) {
+      const opt = document.createElement('option');
+      opt.value = l; opt.textContent = l;
+      sel.appendChild(opt);
+    });
+  }
+
+  // ── Teams ─────────────────────────────────────────
+  async function previewTeams() {
+    const params  = buildFilterParams();
+    const teams   = await api('/api/teams/available?' + params);
+    const players = activeTid ? await api('/api/tournament/' + activeTid + '/participants') : [];
+    const n       = players.length || 1;
+    const preview = document.getElementById('teams-preview');
+    if (!teams || !teams.length) {
+      preview.innerHTML = '<p class="empty-msg">No teams match these filters.</p>'; return;
+    }
+    const topN = teams.slice(0, n);
+    let html = '<p class="hint-text" style="margin-bottom:8px">' + teams.length +
+               ' teams match &middot; top ' + topN.length + ' assigned via snake draft</p>';
+    html += '<div class="team-preview-grid">';
+    topN.forEach(function(t) {
+      html += '<div class="team-preview-card"><span class="team-pname">' + t.name +
+              '</span><span class="team-stars">' + t.stars +
+              '&#11088;</span><span class="team-ovr">OVR ' + t.overall + '</span></div>';
+    });
+    html += '</div>';
+    preview.innerHTML = html;
+  }
+
+  async function assignTeams() {
+    if (!activeTid) { alert('Create a tournament first.'); return; }
+    const errEl = document.getElementById('teams-error');
+    errEl.style.display = 'none';
+    const body = {};
+    const type = document.getElementById('f-type').value;
+    const min  = document.getElementById('f-min').value;
+    const max  = document.getElementById('f-max').value;
+    const lg   = document.getElementById('f-league').value;
+    if (type) body.team_type = type;
+    if (min)  body.min_stars = parseFloat(min);
+    if (max)  body.max_stars = parseFloat(max);
+    if (lg)   body.league    = lg;
+    const res = await api('/api/tournament/' + activeTid + '/assign-teams', 'POST', body);
+    const resultEl = document.getElementById('assign-result');
+    if (res.ok) {
+      resultEl.innerHTML = '<span class="success-msg">Teams assigned successfully!</span>';
+      resultEl.style.display = 'block';
+    } else {
+      errEl.textContent = res.error || 'Error assigning teams.';
+      errEl.style.display = 'block';
+    }
+  }
+
+  function buildFilterParams() {
+    const p = new URLSearchParams();
+    const type = document.getElementById('f-type').value;
+    const min  = document.getElementById('f-min').value;
+    const max  = document.getElementById('f-max').value;
+    const lg   = document.getElementById('f-league').value;
+    if (type) p.set('type',      type);
+    if (min)  p.set('min_stars', min);
+    if (max)  p.set('max_stars', max);
+    if (lg)   p.set('league',    lg);
+    return p.toString();
+  }
+
+  // ── Start ─────────────────────────────────────────
+  async function startTournament() {
+    if (!activeTid) { alert('Create a tournament first.'); return; }
+    const errEl = document.getElementById('start-error');
+    errEl.style.display = 'none';
+    const res = await api('/api/tournament/' + activeTid + '/start', 'POST');
+    const resultEl = document.getElementById('start-result');
+    if (res.ok) {
+      resultEl.innerHTML = '<span class="success-msg">Tournament started! ' + res.matchdays + ' matchdays generated.</span>';
+      resultEl.style.display = 'block';
+    } else {
+      errEl.textContent = res.error || 'Error starting tournament.';
+      errEl.style.display = 'block';
+    }
+  }
+
+  // ── Init ──────────────────────────────────────────
+  if (activeTid) {
+    refreshPlayerList();
+    loadLeagues();
+    // restore invite link if it was stored
+    const storedLink = localStorage.getItem('invite_link');
+    if (storedLink) {
+      document.getElementById('invite-link').value = storedLink;
+      document.getElementById('invite-box').style.display = 'block';
+    }
+  }
+</script>
+{% endblock %}

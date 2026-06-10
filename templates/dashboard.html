@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h2 class="page-title" id="page-tournament-name">—</h2>
+    <p class="page-sub" id="page-sub">Loading…</p>
+  </div>
+  <button class="btn-ghost-sm" onclick="loadDashboard()">↻ Refresh</button>
+</div>
+
+<!-- Championnat: standings table -->
+<div id="view-standings">
+  <div class="card">
+    <table class="standings-table" id="standings-table">
+      <thead>
+        <tr>
+          <th>#</th><th></th>
+          <th class="col-name">Player</th>
+          <th>J</th><th>W</th><th>D</th><th>L</th><th>Dif</th><th>Pts</th>
+        </tr>
+      </thead>
+      <tbody id="standings-body">
+        <tr><td colspan="9" class="loading-cell">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Supercup: bracket -->
+<div id="view-bracket" style="display:none">
+  <div id="bracket-root"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const me = localStorage.getItem('username') || '';
+
+async function loadDashboard() {
+  const tid  = localStorage.getItem('tournament_id');
+  const name = localStorage.getItem('tournament_name') || '—';
+  document.getElementById('page-tournament-name').textContent = name;
+  if (!tid) { document.getElementById('page-sub').textContent = 'No tournament joined.'; return; }
+
+  const [info, matches, standings] = await Promise.all([
+    api('/api/tournament/' + tid + '/info'),
+    api('/api/tournament/' + tid + '/matches'),
+    api('/api/tournament/' + tid + '/standings')
+  ]);
+
+  const ttype = (info && info.tournament_type) || 'championnat';
+  if (ttype === 'supercup') {
+    document.getElementById('view-standings').style.display = 'none';
+    document.getElementById('view-bracket').style.display   = 'block';
+    renderBracket(matches || [], info);
+  } else {
+    document.getElementById('view-standings').style.display = 'block';
+    document.getElementById('view-bracket').style.display   = 'none';
+    renderStandings(standings || []);
+  }
+}
+
+// ── Championnat standings ────────────────────────
+function renderStandings(standings) {
+  const played = standings.length ? Math.max(...standings.map(function(s){return s.played;})) : 0;
+  document.getElementById('page-sub').textContent = played ? 'Matchday ' + played : 'No matches played yet';
+  const tbody = document.getElementById('standings-body');
+  if (!standings.length) { tbody.innerHTML = '<tr><td colspan="9" class="loading-cell">No players yet.</td></tr>'; return; }
+  tbody.innerHTML = standings.map(function(s, i) {
+    const isMe = s.username === me, pos = i + 1;
+    const posEl = pos === 1 ? '<span class="pos-gold">1</span>' : '<span class="pos-num">' + pos + '</span>';
+    const dif = s.goal_diff > 0 ? '+' + s.goal_diff : s.goal_diff;
+    return '<tr class="' + (isMe ? 'row-me' : '') + '">' +
+      '<td>' + posEl + '</td>' +
+      '<td><div class="avatar-sm" style="background:' + avatarColor(s.username) + '">' + initials(s.username) + '</div></td>' +
+      '<td class="col-name"><span class="player-name">' + s.username + (isMe ? ' <span class="you-tag">you</span>' : '') + '</span>' +
+        '<span class="team-sub">' + (s.team_name||'—') + '</span></td>' +
+      '<td>' + s.played + '</td><td>' + s.won + '</td><td>' + s.drawn + '</td><td>' + s.lost + '</td>' +
+      '<td class="' + (s.goal_diff>0?'pos-diff':s.goal_diff<0?'neg-diff':'') + '">' + dif + '</td>' +
+      '<td class="pts-cell">' + s.points + '</td></tr>';
+  }).join('');
+}
+
+// ── Supercup bracket ─────────────────────────────
+function buildPairs(leg1Matches, leg2Matches) {
+  return leg1Matches.map(function(l1) {
+    const l2 = leg2Matches.find(function(m) {
+      return m.home_participant_id === l1.away_participant_id &&
+             m.away_participant_id === l1.home_participant_id;
+    });
+    return { l1, l2: l2 || null };
+  });
+}
+
+function aggFor(pair) {
+  if (!pair.l1 || !pair.l2 || pair.l1.home_score === null || pair.l2.home_score === null) return null;
+  const h = pair.l1.home_score + pair.l2.away_score;
+  const a = pair.l1.away_score + pair.l2.home_score;
+  return { h, a, h1: pair.l1.home_username, h2: pair.l1.away_username,
+           winner: h > a ? pair.l1.home_username : (a > h ? pair.l1.away_username : pair.l1.home_username + '*') };
+}
+
+function renderBracket(matches, info) {
+  const maxMd = matches.length ? Math.max(...matches.map(function(m){return m.matchday;})) : 0;
+  const isFinished = info && info.status === 'finished';
+  document.getElementById('page-sub').textContent =
+    isFinished ? '🏆 Tournament finished' : maxMd ? 'In progress' : 'Not started';
+
+  // Group into rounds (pairs of matchdays: leg1=odd md, leg2=odd+1 md)
+  const rounds = [];
+  for (let md = 1; md <= maxMd; md += 2) {
+    const l1 = matches.filter(function(m){return m.matchday === md;});
+    const l2 = matches.filter(function(m){return m.matchday === md+1;});
+    if (!l1.length) continue;
+    const rawLabel = (l1[0].round_label||'').replace(/ — Leg [12]$/, '').trim();
+    rounds.push({ pairs: buildPairs(l1, l2), label: rawLabel || ('Round ' + Math.ceil(md/2)) });
+  }
+
+  const root = document.getElementById('bracket-root');
+  if (!rounds.length) {
+    root.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--muted)">Tournament not started yet.</div>';
+    return;
+  }
+
+  // Separate SF rounds from Final round
+  // Final = round with label "Final" OR the last round if it has only 1 pair
+  let finalRound = null, sfRounds = [];
+  for (let i = rounds.length - 1; i >= 0; i--) {
+    if (!finalRound && (rounds[i].label === 'Final' || (i === rounds.length-1 && rounds[i].pairs.length === 1))) {
+      finalRound = rounds[i];
+    } else {
+      sfRounds.unshift(rounds[i]);
+    }
+  }
+  // If all rounds have multiple pairs and no Final found, treat last as pending Final
+  if (!finalRound) { finalRound = rounds[rounds.length-1]; sfRounds = rounds.slice(0,-1); }
+
+  const sfRound = sfRounds.length ? sfRounds[sfRounds.length-1] : null;
+
+  let html = '<div class="sc-bracket">';
+
+  if (!sfRound) {
+    // Only a Final (2-player tournament or direct final)
+    html += '<div class="sc-final-only">' + renderFinalBlock(finalRound.pairs[0], finalRound.label, isFinished) + '</div>';
+  } else {
+    // SF left | connector | Final center | connector | SF right
+    const sfPairs = sfRound.pairs;
+    const sfLabel = sfRound.label;
+    const mid = Math.ceil(sfPairs.length / 2);
+    const leftPairs  = sfPairs.slice(0, mid);
+    const rightPairs = sfPairs.slice(mid);
+
+    // Left SF
+    html += '<div class="sc-col sc-col-left">';
+    html += '<div class="sc-round-label">' + sfLabel + '</div>';
+    leftPairs.forEach(function(p) { html += renderTieCard(p); });
+    html += '</div>';
+    html += '<div class="sc-connector left">' + connectorSvg(leftPairs.length, 'left') + '</div>';
+
+    // Center Final
+    html += '<div class="sc-col sc-col-center">';
+    if (finalRound.pairs.length === 1) {
+      html += renderFinalBlock(finalRound.pairs[0], finalRound.label, isFinished);
+    } else {
+      // Final not generated yet — placeholder
+      html += '<div class="sc-round-label sc-final-label">Final</div>';
+      html += '<div class="sc-final-card" style="opacity:0.3;border-color:#333;pointer-events:none">';
+      html += '<div style="padding:24px 16px;text-align:center;color:var(--muted);font-size:0.85rem">Awaiting semi-final results…</div>';
+      html += '</div>';
+    }
+    html += '</div>';
+
+    html += '<div class="sc-connector right">' + connectorSvg(rightPairs.length, 'right') + '</div>';
+
+    // Right SF
+    html += '<div class="sc-col sc-col-right">';
+    if (rightPairs.length) html += '<div class="sc-round-label">' + sfLabel + '</div>';
+    rightPairs.forEach(function(p) { html += renderTieCard(p); });
+    html += '</div>';
+  }
+
+  html += '</div>';
+  root.innerHTML = html;
+}
+
+function connectorSvg(n, side) {
+  // Use percentage-based viewBox so SVG stretches with flex column height
+  const unitH = 100 / n;
+  let lines = '';
+  for (let i = 0; i < n; i++) {
+    const y = unitH * i + unitH / 2;
+    const mid = 50;
+    if (side === 'left') {
+      lines += '<line x1="0" y1="' + y + '" x2="30" y2="' + y + '" />';
+      lines += '<line x1="30" y1="' + y + '" x2="30" y2="' + mid + '" />';
+      lines += '<line x1="30" y1="' + mid + '" x2="60" y2="' + mid + '" />';
+    } else {
+      lines += '<line x1="60" y1="' + y + '" x2="30" y2="' + y + '" />';
+      lines += '<line x1="30" y1="' + y + '" x2="30" y2="' + mid + '" />';
+      lines += '<line x1="30" y1="' + mid + '" x2="0" y2="' + mid + '" />';
+    }
+  }
+  return '<svg viewBox="0 0 60 100" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" style="width:50px;height:100%;display:block"><g stroke="rgba(212,163,62,0.45)" stroke-width="2.5" fill="none">' + lines + '</g></svg>';
+}
+
+function renderTieCard(pair, compact) {
+  const agg = aggFor(pair);
+  const myMatch = pair.l1 && (pair.l1.home_username === me || pair.l1.away_username === me);
+
+  function legRow(m, leg) {
+    if (!m) return '<div class="sc-leg"><span class="sc-leg-num">L' + leg + '</span><span class="sc-team">TBD</span><span class="sc-score sc-pend">–</span><span class="sc-team right">TBD</span></div>';
+    const sc = m.home_score !== null
+      ? '<span class="sc-score">' + m.home_score + ' – ' + m.away_score + '</span>'
+      : '<span class="sc-score sc-pend">vs</span>';
+    const mine = m.home_username === me || m.away_username === me;
+    return '<div class="sc-leg' + (mine ? ' sc-mine' : '') + '">' +
+      '<span class="sc-leg-num">L' + leg + '</span>' +
+      '<span class="sc-team">' + m.home_username + '</span>' +
+      sc +
+      '<span class="sc-team right">' + m.away_username + '</span></div>';
+  }
+
+  let aggHtml;
+  if (agg) {
+    aggHtml = '<div class="sc-agg sc-agg-done"><span class="sc-agg-winner">▶ ' + agg.winner + '</span><span class="sc-agg-detail">' + agg.h1 + ' ' + agg.h + '–' + agg.a + ' ' + agg.h2 + ' (agg)</span></div>';
+  } else {
+    aggHtml = '<div class="sc-agg">Awaiting results…</div>';
+  }
+
+  return '<div class="sc-tie' + (agg ? ' sc-done' : ' sc-live') + (myMatch ? ' sc-mytie' : '') + '">' +
+    legRow(pair.l1, 1) + legRow(pair.l2, 2) + aggHtml + '</div>';
+}
+
+function renderFinalBlock(pair, label, isFinished) {
+  const agg = aggFor(pair);
+  const myMatch = pair && pair.l1 && (pair.l1.home_username === me || pair.l1.away_username === me);
+
+  function bigLegRow(m, leg) {
+    if (!m) return '<div class="sc-final-leg"><span class="sc-leg-num">Leg ' + leg + '</span><div class="sc-final-players"><div class="sc-final-player"><span class="sc-final-name" style="color:var(--muted)">TBD</span></div><span class="sc-final-score sc-pend">vs</span><div class="sc-final-player right"><span class="sc-final-name" style="color:var(--muted)">TBD</span></div></div></div>';
+    const sc = m.home_score !== null
+      ? '<span class="sc-final-score">' + m.home_score + ' – ' + m.away_score + '</span>'
+      : '<span class="sc-final-score sc-pend">vs</span>';
+    const mine = m.home_username === me || m.away_username === me;
+    return '<div class="sc-final-leg' + (mine ? ' sc-mine' : '') + '">' +
+      '<span class="sc-leg-num">Leg ' + leg + '</span>' +
+      '<div class="sc-final-players">' +
+        '<div class="sc-final-player">' +
+          '<div class="sc-avatar" style="background:' + avatarColor(m.home_username) + '">' + initials(m.home_username) + '</div>' +
+          '<div style="min-width:0"><div class="sc-final-name">' + m.home_username + '</div>' + (m.home_team ? '<div class="sc-final-team">' + m.home_team + '</div>' : '') + '</div>' +
+        '</div>' +
+        sc +
+        '<div class="sc-final-player right">' +
+          '<div style="min-width:0;text-align:right"><div class="sc-final-name">' + m.away_username + '</div>' + (m.away_team ? '<div class="sc-final-team">' + m.away_team + '</div>' : '') + '</div>' +
+          '<div class="sc-avatar" style="background:' + avatarColor(m.away_username) + '">' + initials(m.away_username) + '</div>' +
+        '</div>' +
+      '</div></div>';
+  }
+
+  let aggHtml, champHtml;
+  if (agg) {
+    aggHtml = '<div class="sc-final-agg"><span class="sc-agg-winner">' + agg.h1 + ' ' + agg.h + ' – ' + agg.a + ' ' + agg.h2 + '</span></div>';
+    champHtml = isFinished
+      ? '<div class="sc-champion"><div class="sc-trophy">🏆</div><div class="sc-champ-label">Champion</div><div class="sc-champ-name">' + agg.winner + '</div></div>'
+      : '';
+  } else {
+    aggHtml = '<div class="sc-final-agg sc-pend-agg">Both legs pending…</div>';
+    champHtml = '';
+  }
+
+  return '<div class="sc-round-label sc-final-label">' + label + '</div>' +
+    '<div class="sc-final-card' + (myMatch ? ' sc-mytie' : '') + '">' +
+    bigLegRow(pair ? pair.l1 : null, 1) +
+    '<div class="sc-leg-divider"></div>' +
+    bigLegRow(pair ? pair.l2 : null, 2) +
+    aggHtml + '</div>' + champHtml;
+}
+
+loadDashboard();
+</script>
+{% endblock %}

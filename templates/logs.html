@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}Activity Log{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2 class="page-title">Activity log</h2>
+  <span class="hint-text" id="log-count"></span>
+</div>
+
+<!-- Users & PINs panel -->
+<div class="card" style="padding:0;overflow:hidden;margin-bottom:1rem">
+  <div style="padding:0.85rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+    <span class="step-title">Registered users</span>
+    <span class="hint-text">PINs shown for account recovery</span>
+  </div>
+  <div id="users-list" style="padding:1rem;display:flex;flex-wrap:wrap;gap:8px">
+    <p class="empty-msg">Loading…</p>
+  </div>
+</div>
+
+<div class="card" style="padding:0; overflow:hidden">
+  <div style="padding:1rem 1.25rem; border-bottom:1px solid var(--border); display:flex; gap:8px; flex-wrap:wrap; align-items:center">
+    <input class="form-input" style="flex:1; min-width:160px" type="text" id="log-search" placeholder="Search events, users, details…" oninput="filterLogs()" />
+    <select class="form-input" style="width:auto" id="log-type" onchange="filterLogs()">
+      <option value="">All events</option>
+      <option value="tournament_created">Tournament created</option>
+      <option value="tournament_started">Tournament started</option>
+      <option value="tournament_deleted">Tournament deleted</option>
+      <option value="player_joined">Player joined</option>
+      <option value="player_added_by_admin">Player added by admin</option>
+      <option value="teams_assigned">Teams assigned</option>
+      <option value="result_submitted">Result submitted</option>
+    </select>
+    <button class="btn-secondary" onclick="loadLogs()">Refresh</button>
+    <button class="btn-secondary" style="border-color:#c0392b55;color:#e74c3c" onclick="clearLogs()">Clear logs</button>
+  </div>
+  <div id="log-table-wrap" style="overflow-x:auto">
+    <table class="standings-table" id="log-table">
+      <thead>
+        <tr>
+          <th style="width:160px">Time</th>
+          <th style="width:180px">Event</th>
+          <th style="width:120px">User</th>
+          <th>Details</th>
+        </tr>
+      </thead>
+      <tbody id="log-body">
+        <tr><td colspan="4" class="empty-msg">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  let allLogs = [];
+
+  const EVENT_LABELS = {
+    tournament_created:    { label: 'Tournament created', color: '#27ae60' },
+    tournament_started:    { label: 'Tournament started', color: '#2980b9' },
+    tournament_deleted:    { label: 'Tournament deleted', color: '#c0392b' },
+    player_joined:         { label: 'Player joined',      color: '#8e44ad' },
+    player_added_by_admin: { label: 'Added by admin',     color: '#d35400' },
+    teams_assigned:        { label: 'Teams assigned',     color: '#16a085' },
+    result_submitted:      { label: 'Result submitted',   color: '#e5a020' },
+  };
+
+  async function clearLogs() {
+    if (!confirm('Clear all log entries? This cannot be undone.')) return;
+    const res = await api('/api/admin/logs/clear', 'POST');
+    if (res.ok) {
+      allLogs = [];
+      document.getElementById('log-count').textContent = '0 entries';
+      renderLogs([]);
+    } else {
+      alert(res.error || 'Error clearing logs.');
+    }
+  }
+
+  async function loadLogs() {
+    const res = await api('/api/admin/logs');
+    if (res.error) {
+      document.getElementById('log-body').innerHTML =
+        '<tr><td colspan="4" class="empty-msg" style="color:#e74c3c">' + res.error + '</td></tr>';
+      return;
+    }
+    allLogs = res;
+    document.getElementById('log-count').textContent = res.length + ' entries';
+    renderLogs(allLogs);
+  }
+
+  function renderLogs(logs) {
+    const tbody = document.getElementById('log-body');
+    if (!logs.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="empty-msg">No log entries yet.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = logs.map(function(e) {
+      const meta = EVENT_LABELS[e.event_type] || { label: e.event_type, color: '#999' };
+      const ts   = e.timestamp ? e.timestamp.replace('T', ' ').slice(0, 19) : '—';
+      const badge = '<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:600;background:' +
+                    meta.color + '22;color:' + meta.color + '">' + meta.label + '</span>';
+      const tid  = e.tournament_id ? '<span style="color:var(--muted);font-size:0.8rem"> #' + e.tournament_id + '</span>' : '';
+      return '<tr>' +
+        '<td style="font-size:0.82rem;color:var(--muted);white-space:nowrap">' + ts + '</td>' +
+        '<td>' + badge + tid + '</td>' +
+        '<td style="font-weight:600">' + (e.username || '—') + '</td>' +
+        '<td style="font-size:0.88rem;color:var(--text-secondary)">' + (e.details || '') + '</td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  function filterLogs() {
+    const q    = document.getElementById('log-search').value.toLowerCase();
+    const type = document.getElementById('log-type').value;
+    const filtered = allLogs.filter(function(e) {
+      const matchType = !type || e.event_type === type;
+      const matchQ    = !q ||
+        (e.username  || '').toLowerCase().includes(q) ||
+        (e.details   || '').toLowerCase().includes(q) ||
+        (e.event_type|| '').toLowerCase().includes(q);
+      return matchType && matchQ;
+    });
+    renderLogs(filtered);
+  }
+
+  async function loadUsers() {
+    const users = await api('/api/admin/users');
+    const el = document.getElementById('users-list');
+    if (!users || users.error) { el.innerHTML = '<p class="empty-msg">Could not load users.</p>'; return; }
+    if (!users.length) { el.innerHTML = '<p class="empty-msg">No registered users yet.</p>'; return; }
+    el.innerHTML = users.map(function(u) {
+      return '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;min-width:180px">' +
+        '<div style="width:32px;height:32px;border-radius:50%;background:' + avatarColor(u.username) + ';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">' + initials(u.username) + '</div>' +
+        '<div><div style="font-weight:600;font-size:13px">' + u.username + (u.is_admin ? ' <span style="font-size:10px;color:var(--gold)">admin</span>' : '') + '</div>' +
+        '<div style="font-size:12px;color:var(--muted)">PIN: <span style="font-family:monospace;color:var(--text);font-weight:700;letter-spacing:2px">' + u.pin + '</span></div></div>' +
+      '</div>';
+    }).join('');
+  }
+
+  loadLogs();
+  loadUsers();
+</script>
+{% endblock %}
