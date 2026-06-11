@@ -219,12 +219,17 @@
       if (leg1Matches.length) rounds.push({ leg1: leg1Matches, leg2: leg2Matches });
     }
 
-    // Calculate total expected rounds and add future TBD rounds
-    const nPlayers = info && info.max_players ? info.max_players : (matches.length ? rounds[0].leg1.length * 2 : 0);
-    let expectedRounds = 0;
-    let n = nPlayers;
-    while (n > 1) { expectedRounds++; n = Math.ceil(n / 2); }
-    while (rounds.length < expectedRounds) {
+    // Determine how many total rounds there should be from the first round's label
+    const roundOrder = ['Final', 'Semi-final', 'Quarter-final', 'Round of 8', 'Round of 16', 'Round of 32'];
+    function roundsNeededAfter(label) {
+      if (!label) return 0;
+      const clean = label.replace(' — Leg 1','').replace(' — Leg 2','').trim();
+      const idx = roundOrder.indexOf(clean);
+      return idx >= 0 ? idx : 0;  // idx=0 means Final (no more rounds), idx=1 means Semi (1 more: Final), etc.
+    }
+    const firstLabel = rounds.length && rounds[0].leg1.length ? (rounds[0].leg1[0].round_label || '') : '';
+    const tbdCount = roundsNeededAfter(firstLabel) - (rounds.length - 1);
+    for (let i = 0; i < tbdCount; i++) {
       rounds.push({ leg1: [], leg2: [], tbd: true });
     }
     if (!rounds.length) { el.innerHTML = '<p class="empty-msg" style="padding:1rem">No matches generated yet.</p>'; return; }
