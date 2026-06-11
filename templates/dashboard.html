@@ -157,7 +157,9 @@ function aggFor(pair) {
 }
 
 function renderBracket(matches, info) {
-  bracketLegs = (info && info.legs) ? parseInt(info.legs) : 2;
+  // Detect from the real match data first (ground truth), fall back to the stored flag.
+  const hasLeg2 = (matches || []).some(function(m){ return Number(m.leg) === 2; });
+  bracketLegs = hasLeg2 ? 2 : ((info && Number(info.legs)) || 1);
   const mdStep = bracketLegs === 1 ? 1 : 2;
   const maxMd = matches.length ? Math.max(...matches.map(function(m){return m.matchday;})) : 0;
   const isFinished = info && info.status === 'finished';
