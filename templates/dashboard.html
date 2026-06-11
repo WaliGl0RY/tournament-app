@@ -110,13 +110,12 @@ async function loadDashboard() {
     }
   }
 
-  // Cheer banner for players, "you're next" banner for watchers
-  const isAdmin = me && me.toLowerCase() === 'walid';
+  // Cheer banner for players (including admin if they're playing), "you're next" banner for watchers
   const isPlayer = (matches || []).some(function(m){ return m.home_username === me || m.away_username === me; })
                 || (standings || []).some(function(s){ return s.username === me; });
-  document.getElementById('spectator-banner').style.display = (isPlayer || isAdmin) ? 'none' : 'block';
-  document.getElementById('player-banner').style.display    = (isPlayer && !isAdmin) ? 'block' : 'none';
-  if (isPlayer && !isAdmin) document.getElementById('player-name-cheer').textContent = me;
+  document.getElementById('spectator-banner').style.display = isPlayer ? 'none' : 'block';
+  document.getElementById('player-banner').style.display    = isPlayer ? 'block' : 'none';
+  if (isPlayer) document.getElementById('player-name-cheer').textContent = me;
 
   const ttype = (info && info.tournament_type) || 'championnat';
   if (ttype === 'supercup') {
