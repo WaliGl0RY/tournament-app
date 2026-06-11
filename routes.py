@@ -165,6 +165,33 @@ def remove_player(tid):
         db.close()
 
 
+@routes_bp.route('/api/tournament/<int:tid>/manual-assign-teams', methods=['POST'])
+def manual_assign_teams(tid):
+    err = require_login()
+    if err: return err
+    data = request.get_json() or {}
+    assignments = data.get('assignments', {})  # { participant_id: team_name }
+    if not assignments: return jsonify({'error': 'No assignments provided'}), 400
+    db = get_db()
+    try:
+        t = db.execute('SELECT * FROM tournaments WHERE id=?', (tid,)).fetchone()
+        if not t or t['admin_id'] != session['user_id']: return jsonify({'error': 'Admin only'}), 403
+        all_teams = {team['name']: team for team in filter_teams()}
+        summary = []
+        for pid_str, team_name in assignments.items():
+            team = all_teams.get(team_name)
+            if not team: return jsonify({'error': f'Team "{team_name}" not found'}), 404
+            db.execute('UPDATE participants SET team_name=?, team_overall=?, team_stars=? WHERE id=? AND tournament_id=?',
+                       (team['name'], team['overall'], team['stars'], int(pid_str), tid))
+            p = db.execute('SELECT u.username FROM participants p JOIN users u ON p.user_id=u.id WHERE p.id=?', (int(pid_str),)).fetchone()
+            if p: summary.append(f'{p["username"]}→{team["name"]}')
+        log_event(db, 'teams_assigned', tid, session['username'], ' | '.join(summary))
+        db.commit()
+        return jsonify({'ok': True})
+    finally:
+        db.close()
+
+
 @routes_bp.route('/api/tournament/<int:tid>/participants')
 def get_participants(tid):
     db = get_db()

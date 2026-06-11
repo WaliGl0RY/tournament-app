@@ -144,7 +144,8 @@
   <div id="teams-preview" class="teams-preview"></div>
   <div style="display:flex; gap:8px; flex-wrap:wrap;">
     <button class="btn-secondary" onclick="previewTeams()">Preview teams</button>
-    <button class="btn-primary" style="flex:1" onclick="assignTeams()">Assign teams</button>
+    <button class="btn-primary" style="flex:1" onclick="assignTeams()">Auto assign</button>
+    <button class="btn-secondary" onclick="openManualAssign()">Manual assign</button>
   </div>
   <div id="assign-result" style="display:none; margin-top:1rem"></div>
   <div id="teams-error" class="error-msg" style="display:none"></div>
@@ -160,6 +161,20 @@
   <button class="btn-primary btn-start" style="margin-top:1rem" onclick="startTournament()">Generate schedule &amp; start</button>
   <div id="start-result" style="display:none; margin-top:1rem"></div>
   <div id="start-error" class="error-msg" style="display:none"></div>
+</div>
+
+<!-- Manual assign modal -->
+<div id="manual-assign-overlay" style="display:none;position:fixed;inset:0;background:#000a;z-index:9000;align-items:center;justify-content:center" onclick="if(event.target===this)this.style.display='none'">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.5rem;width:min(520px,95vw);max-height:85vh;overflow-y:auto">
+    <h3 style="margin:0 0 1rem">Manual team assignment</h3>
+    <input class="form-input" id="manual-team-search" placeholder="Search team…" oninput="filterManualTeams()" style="margin-bottom:1rem"/>
+    <div id="manual-rows"></div>
+    <div style="display:flex;gap:8px;margin-top:1.25rem">
+      <button class="btn-primary" style="flex:1" onclick="submitManualAssign()">Save assignments</button>
+      <button class="btn-ghost" onclick="document.getElementById('manual-assign-overlay').style.display='none'">Cancel</button>
+    </div>
+    <div id="manual-assign-error" class="error-msg" style="display:none;margin-top:0.5rem"></div>
+  </div>
 </div>
 
 {% endblock %}
@@ -430,6 +445,64 @@
     if (max)  p.set('max_stars', max);
     if (lg)   p.set('league',    lg);
     return p.toString();
+  }
+
+  // ── Manual assign ────────────────────────────────
+  let allTeamsCache = [];
+  let manualPlayers = [];
+
+  async function openManualAssign() {
+    if (!activeTid) { alert('Create a tournament first.'); return; }
+    const [players, teams] = await Promise.all([
+      api('/api/tournament/' + activeTid + '/participants'),
+      api('/api/teams/available')
+    ]);
+    manualPlayers = players || [];
+    allTeamsCache = (teams || []).sort(function(a,b){ return b.overall - a.overall; });
+    renderManualRows('');
+    document.getElementById('manual-team-search').value = '';
+    document.getElementById('manual-assign-error').style.display = 'none';
+    document.getElementById('manual-assign-overlay').style.display = 'flex';
+  }
+
+  function filterManualTeams() {
+    renderManualRows(document.getElementById('manual-team-search').value.toLowerCase());
+  }
+
+  function renderManualRows(q) {
+    const filtered = q ? allTeamsCache.filter(function(t){ return t.name.toLowerCase().includes(q); }) : allTeamsCache;
+    const html = manualPlayers.map(function(p) {
+      const opts = filtered.map(function(t) {
+        return '<option value="' + t.name + '">' + t.name + ' (' + t.stars + '★ OVR ' + t.overall + ')</option>';
+      }).join('');
+      const cur = p.team_name ? '<option value="' + p.team_name + '" selected>' + p.team_name + '</option>' : '<option value="">— pick a team —</option>';
+      return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">' +
+        '<div style="width:28px;height:28px;border-radius:50%;background:' + avatarColor(p.username) + ';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">' + initials(p.username) + '</div>' +
+        '<span style="min-width:90px;font-weight:600;font-size:0.9rem">' + p.username + '</span>' +
+        '<select class="form-input" id="manual-team-' + p.id + '" style="flex:1">' + cur + opts + '</select>' +
+        '</div>';
+    }).join('');
+    document.getElementById('manual-rows').innerHTML = html || '<p class="empty-msg">No players yet.</p>';
+  }
+
+  async function submitManualAssign() {
+    const errEl = document.getElementById('manual-assign-error');
+    errEl.style.display = 'none';
+    const assignments = {};
+    for (const p of manualPlayers) {
+      const val = document.getElementById('manual-team-' + p.id).value;
+      if (!val) { errEl.textContent = p.username + ' has no team selected.'; errEl.style.display = 'block'; return; }
+      assignments[p.id] = val;
+    }
+    const res = await api('/api/tournament/' + activeTid + '/manual-assign-teams', 'POST', { assignments });
+    if (res.ok) {
+      document.getElementById('manual-assign-overlay').style.display = 'none';
+      document.getElementById('assign-result').innerHTML = '<span class="success-msg">Teams manually assigned!</span>';
+      document.getElementById('assign-result').style.display = 'block';
+    } else {
+      errEl.textContent = res.error || 'Error saving assignments.';
+      errEl.style.display = 'block';
+    }
   }
 
   // ── Start ─────────────────────────────────────────
