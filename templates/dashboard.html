@@ -124,26 +124,25 @@ function renderBracket(matches, info) {
     return;
   }
 
-  // Separate SF rounds from Final round
-  // Final = round with label "Final" OR the last round if it has only 1 pair
-  let finalRound = null, sfRounds = [];
-  for (let i = rounds.length - 1; i >= 0; i--) {
-    if (!finalRound && (rounds[i].label === 'Final' || (i === rounds.length-1 && rounds[i].pairs.length === 1))) {
-      finalRound = rounds[i];
-    } else {
-      sfRounds.unshift(rounds[i]);
-    }
+  // Find the Final round by label (only exists once it has been generated).
+  // The round currently being played is always the LAST existing round.
+  const finalRound = rounds.find(function(r){ return r.label === 'Final'; }) || null;
+  let sfRound, finalForDisplay;
+  if (finalRound) {
+    finalForDisplay = finalRound;
+    const fidx = rounds.indexOf(finalRound);
+    sfRound = fidx > 0 ? rounds[fidx - 1] : null;
+  } else {
+    // Final not generated yet — the latest round is the current stage (e.g. Semi-final)
+    sfRound = rounds[rounds.length - 1];
+    finalForDisplay = null;
   }
-  // If all rounds have multiple pairs and no Final found, treat last as pending Final
-  if (!finalRound) { finalRound = rounds[rounds.length-1]; sfRounds = rounds.slice(0,-1); }
-
-  const sfRound = sfRounds.length ? sfRounds[sfRounds.length-1] : null;
 
   let html = '<div class="sc-bracket">';
 
   if (!sfRound) {
-    // Only a Final (2-player tournament or direct final)
-    html += '<div class="sc-final-only">' + renderFinalBlock(finalRound.pairs[0], finalRound.label, isFinished) + '</div>';
+    // Only a Final exists (2-player tournament / direct final)
+    html += '<div class="sc-final-only">' + renderFinalBlock(finalForDisplay.pairs[0], finalForDisplay.label, isFinished) + '</div>';
   } else {
     // SF left | connector | Final center | connector | SF right
     const sfPairs = sfRound.pairs;
@@ -161,23 +160,30 @@ function renderBracket(matches, info) {
 
     // Center Final
     html += '<div class="sc-col sc-col-center">';
-    if (finalRound.pairs.length === 1) {
-      html += renderFinalBlock(finalRound.pairs[0], finalRound.label, isFinished);
+    if (finalForDisplay) {
+      html += renderFinalBlock(finalForDisplay.pairs[0], finalForDisplay.label, isFinished);
     } else {
       // Final not generated yet — placeholder
       html += '<div class="sc-round-label sc-final-label">Final</div>';
-      html += '<div class="sc-final-card" style="opacity:0.3;border-color:#333;pointer-events:none">';
-      html += '<div style="padding:24px 16px;text-align:center;color:var(--muted);font-size:0.85rem">Awaiting semi-final results…</div>';
+      html += '<div class="sc-final-card" style="opacity:0.4;border-color:#333">';
+      html += '<div class="sc-final-leg"><span class="sc-leg-num">Leg 1</span><div class="sc-final-players"><div class="sc-final-player"><span class="sc-final-name" style="color:var(--muted)">TBD</span></div><span class="sc-final-score sc-pend">vs</span><div class="sc-final-player right"><span class="sc-final-name" style="color:var(--muted)">TBD</span></div></div></div>';
+      html += '<div class="sc-leg-divider"></div>';
+      html += '<div class="sc-final-leg"><span class="sc-leg-num">Leg 2</span><div class="sc-final-players"><div class="sc-final-player"><span class="sc-final-name" style="color:var(--muted)">TBD</span></div><span class="sc-final-score sc-pend">vs</span><div class="sc-final-player right"><span class="sc-final-name" style="color:var(--muted)">TBD</span></div></div></div>';
+      html += '<div class="sc-final-agg sc-pend-agg">Winners of the semi-finals meet here 🏆</div>';
       html += '</div>';
     }
     html += '</div>';
 
-    html += '<div class="sc-connector right">' + connectorSvg(rightPairs.length, 'right') + '</div>';
+    html += '<div class="sc-connector right">' + connectorSvg(Math.max(rightPairs.length, 1), 'right') + '</div>';
 
-    // Right SF
+    // Right SF (if odd number of semis, right side can be empty — show placeholder slot)
     html += '<div class="sc-col sc-col-right">';
-    if (rightPairs.length) html += '<div class="sc-round-label">' + sfLabel + '</div>';
-    rightPairs.forEach(function(p) { html += renderTieCard(p); });
+    html += '<div class="sc-round-label">' + sfLabel + '</div>';
+    if (rightPairs.length) {
+      rightPairs.forEach(function(p) { html += renderTieCard(p); });
+    } else {
+      html += '<div class="sc-tie" style="opacity:0.4"><div class="sc-leg"><span class="sc-leg-num">L1</span><span class="sc-team" style="color:var(--muted)">TBD</span><span class="sc-score sc-pend">–</span><span class="sc-team right" style="color:var(--muted)">TBD</span></div><div class="sc-leg"><span class="sc-leg-num">L2</span><span class="sc-team" style="color:var(--muted)">TBD</span><span class="sc-score sc-pend">–</span><span class="sc-team right" style="color:var(--muted)">TBD</span></div><div class="sc-agg">Awaiting bracket…</div></div>';
+    }
     html += '</div>';
   }
 
