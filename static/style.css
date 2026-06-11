@@ -523,6 +523,18 @@ main { max-width: 720px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
 
 /* ── Mobile (≤600px) — additive only, desktop untouched ──────────── */
 @media (max-width: 600px) {
+  /* Stop the whole page from scrolling sideways */
+  html, body { overflow-x: hidden; max-width: 100%; }
+  main { max-width: 100% !important; width: 100%; box-sizing: border-box; }
+
+  /* Match cards: let names shrink/ellipsis instead of overflowing */
+  .match-player { min-width: 0; }
+  .match-pname, .match-team {
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+  }
+  .match-row { gap: 6px; }
+  .btn-enter { white-space: nowrap; flex-shrink: 0; }
+
   /* Navbar: brand on top, links scroll horizontally, compact */
   .navbar {
     flex-wrap: wrap;
