@@ -127,8 +127,11 @@ function renderStandings(standings) {
 }
 
 // ── Supercup bracket ─────────────────────────────
+let bracketLegs = 2;  // set per tournament in renderBracket
+
 function buildPairs(leg1Matches, leg2Matches) {
   return leg1Matches.map(function(l1) {
+    if (bracketLegs === 1) return { l1, l2: null };
     const l2 = leg2Matches.find(function(m) {
       return m.home_participant_id === l1.away_participant_id &&
              m.away_participant_id === l1.home_participant_id;
@@ -138,7 +141,15 @@ function buildPairs(leg1Matches, leg2Matches) {
 }
 
 function aggFor(pair) {
-  if (!pair.l1 || !pair.l2 || pair.l1.home_score === null || pair.l2.home_score === null) return null;
+  if (!pair.l1) return null;
+  if (bracketLegs === 1) {
+    // Single game — winner is decided by that one match
+    if (pair.l1.home_score === null) return null;
+    const h = pair.l1.home_score, a = pair.l1.away_score;
+    return { h, a, h1: pair.l1.home_username, h2: pair.l1.away_username, single: true,
+             winner: h > a ? pair.l1.home_username : (a > h ? pair.l1.away_username : pair.l1.home_username + '*') };
+  }
+  if (!pair.l2 || pair.l1.home_score === null || pair.l2.home_score === null) return null;
   const h = pair.l1.home_score + pair.l2.away_score;
   const a = pair.l1.away_score + pair.l2.home_score;
   return { h, a, h1: pair.l1.home_username, h2: pair.l1.away_username,
@@ -146,19 +157,21 @@ function aggFor(pair) {
 }
 
 function renderBracket(matches, info) {
+  bracketLegs = (info && info.legs) ? parseInt(info.legs) : 2;
+  const mdStep = bracketLegs === 1 ? 1 : 2;
   const maxMd = matches.length ? Math.max(...matches.map(function(m){return m.matchday;})) : 0;
   const isFinished = info && info.status === 'finished';
   document.getElementById('page-sub').textContent =
     isFinished ? '🏆 Tournament finished' : maxMd ? 'In progress' : 'Not started';
 
-  // Group into rounds (pairs of matchdays: leg1=odd md, leg2=odd+1 md)
+  // Group into rounds. 2-leg: each round = 2 matchdays (leg1, leg2). 1-leg: 1 matchday per round.
   const rounds = [];
-  for (let md = 1; md <= maxMd; md += 2) {
+  for (let md = 1; md <= maxMd; md += mdStep) {
     const l1 = matches.filter(function(m){return m.matchday === md;});
-    const l2 = matches.filter(function(m){return m.matchday === md+1;});
+    const l2 = bracketLegs === 1 ? [] : matches.filter(function(m){return m.matchday === md+1;});
     if (!l1.length) continue;
     const rawLabel = (l1[0].round_label||'').replace(/ — Leg [12]$/, '').trim();
-    rounds.push({ pairs: buildPairs(l1, l2), label: rawLabel || ('Round ' + Math.ceil(md/2)) });
+    rounds.push({ pairs: buildPairs(l1, l2), label: rawLabel || ('Round ' + Math.ceil(md/mdStep)) });
   }
 
   const root = document.getElementById('bracket-root');
@@ -207,11 +220,13 @@ function renderBracket(matches, info) {
       html += renderFinalBlock(finalForDisplay.pairs[0], finalForDisplay.label, isFinished);
     } else {
       // Final not generated yet — placeholder
+      const tbdLeg = function(leg) {
+        const legLbl = bracketLegs === 1 ? '' : '<span class="sc-leg-num">Leg ' + leg + '</span>';
+        return '<div class="sc-final-leg">' + legLbl + '<div class="sc-final-players"><div class="sc-final-player"><span class="sc-final-name" style="color:var(--muted)">TBD</span></div><span class="sc-final-score sc-pend">vs</span><div class="sc-final-player right"><span class="sc-final-name" style="color:var(--muted)">TBD</span></div></div></div>';
+      };
       html += '<div class="sc-round-label sc-final-label">Final</div>';
       html += '<div class="sc-final-card" style="opacity:0.4;border-color:#333">';
-      html += '<div class="sc-final-leg"><span class="sc-leg-num">Leg 1</span><div class="sc-final-players"><div class="sc-final-player"><span class="sc-final-name" style="color:var(--muted)">TBD</span></div><span class="sc-final-score sc-pend">vs</span><div class="sc-final-player right"><span class="sc-final-name" style="color:var(--muted)">TBD</span></div></div></div>';
-      html += '<div class="sc-leg-divider"></div>';
-      html += '<div class="sc-final-leg"><span class="sc-leg-num">Leg 2</span><div class="sc-final-players"><div class="sc-final-player"><span class="sc-final-name" style="color:var(--muted)">TBD</span></div><span class="sc-final-score sc-pend">vs</span><div class="sc-final-player right"><span class="sc-final-name" style="color:var(--muted)">TBD</span></div></div></div>';
+      html += bracketLegs === 1 ? tbdLeg(1) : (tbdLeg(1) + '<div class="sc-leg-divider"></div>' + tbdLeg(2));
       html += '<div class="sc-final-agg sc-pend-agg">Winners of the semi-finals meet here 🏆</div>';
       html += '</div>';
     }
@@ -225,7 +240,11 @@ function renderBracket(matches, info) {
     if (rightPairs.length) {
       rightPairs.forEach(function(p) { html += renderTieCard(p); });
     } else {
-      html += '<div class="sc-tie" style="opacity:0.4"><div class="sc-leg"><span class="sc-leg-num">L1</span><span class="sc-team" style="color:var(--muted)">TBD</span><span class="sc-score sc-pend">–</span><span class="sc-team right" style="color:var(--muted)">TBD</span></div><div class="sc-leg"><span class="sc-leg-num">L2</span><span class="sc-team" style="color:var(--muted)">TBD</span><span class="sc-score sc-pend">–</span><span class="sc-team right" style="color:var(--muted)">TBD</span></div><div class="sc-agg">Awaiting bracket…</div></div>';
+      const tbdSfLeg = function(leg) {
+        const legLbl = bracketLegs === 1 ? '' : '<span class="sc-leg-num">L' + leg + '</span>';
+        return '<div class="sc-leg">' + legLbl + '<span class="sc-team" style="color:var(--muted)">TBD</span><span class="sc-score sc-pend">–</span><span class="sc-team right" style="color:var(--muted)">TBD</span></div>';
+      };
+      html += '<div class="sc-tie" style="opacity:0.4">' + (bracketLegs === 1 ? tbdSfLeg(1) : (tbdSfLeg(1) + tbdSfLeg(2))) + '<div class="sc-agg">Awaiting bracket…</div></div>';
     }
     html += '</div>';
   }
@@ -259,13 +278,14 @@ function renderTieCard(pair, compact) {
   const myMatch = pair.l1 && (pair.l1.home_username === me || pair.l1.away_username === me);
 
   function legRow(m, leg) {
-    if (!m) return '<div class="sc-leg"><span class="sc-leg-num">L' + leg + '</span><span class="sc-team">TBD</span><span class="sc-score sc-pend">–</span><span class="sc-team right">TBD</span></div>';
+    const legLbl = bracketLegs === 1 ? '' : '<span class="sc-leg-num">L' + leg + '</span>';
+    if (!m) return '<div class="sc-leg">' + (bracketLegs === 1 ? '' : '<span class="sc-leg-num">L' + leg + '</span>') + '<span class="sc-team">TBD</span><span class="sc-score sc-pend">–</span><span class="sc-team right">TBD</span></div>';
     const sc = m.home_score !== null
       ? '<span class="sc-score">' + m.home_score + ' – ' + m.away_score + '</span>'
       : '<span class="sc-score sc-pend">vs</span>';
     const mine = m.home_username === me || m.away_username === me;
     return '<div class="sc-leg' + (mine ? ' sc-mine' : '') + '">' +
-      '<span class="sc-leg-num">L' + leg + '</span>' +
+      legLbl +
       '<span class="sc-team">' + m.home_username + '</span>' +
       sc +
       '<span class="sc-team right">' + m.away_username + '</span></div>';
@@ -273,13 +293,17 @@ function renderTieCard(pair, compact) {
 
   let aggHtml;
   if (agg) {
-    aggHtml = '<div class="sc-agg sc-agg-done"><span class="sc-agg-winner">▶ ' + agg.winner + '</span><span class="sc-agg-detail">' + agg.h1 + ' ' + agg.h + '–' + agg.a + ' ' + agg.h2 + ' (agg)</span></div>';
+    const detail = agg.single
+      ? agg.h1 + ' ' + agg.h + '–' + agg.a + ' ' + agg.h2
+      : agg.h1 + ' ' + agg.h + '–' + agg.a + ' ' + agg.h2 + ' (agg)';
+    aggHtml = '<div class="sc-agg sc-agg-done"><span class="sc-agg-winner">▶ ' + agg.winner + '</span><span class="sc-agg-detail">' + detail + '</span></div>';
   } else {
     aggHtml = '<div class="sc-agg">Awaiting results…</div>';
   }
 
+  const legsHtml = bracketLegs === 1 ? legRow(pair.l1, 1) : (legRow(pair.l1, 1) + legRow(pair.l2, 2));
   return '<div class="sc-tie' + (agg ? ' sc-done' : ' sc-live') + (myMatch ? ' sc-mytie' : '') + '">' +
-    legRow(pair.l1, 1) + legRow(pair.l2, 2) + aggHtml + '</div>';
+    legsHtml + aggHtml + '</div>';
 }
 
 function renderFinalBlock(pair, label, isFinished) {
@@ -287,13 +311,14 @@ function renderFinalBlock(pair, label, isFinished) {
   const myMatch = pair && pair.l1 && (pair.l1.home_username === me || pair.l1.away_username === me);
 
   function bigLegRow(m, leg) {
-    if (!m) return '<div class="sc-final-leg"><span class="sc-leg-num">Leg ' + leg + '</span><div class="sc-final-players"><div class="sc-final-player"><span class="sc-final-name" style="color:var(--muted)">TBD</span></div><span class="sc-final-score sc-pend">vs</span><div class="sc-final-player right"><span class="sc-final-name" style="color:var(--muted)">TBD</span></div></div></div>';
+    const legLbl = bracketLegs === 1 ? '' : '<span class="sc-leg-num">Leg ' + leg + '</span>';
+    if (!m) return '<div class="sc-final-leg">' + legLbl + '<div class="sc-final-players"><div class="sc-final-player"><span class="sc-final-name" style="color:var(--muted)">TBD</span></div><span class="sc-final-score sc-pend">vs</span><div class="sc-final-player right"><span class="sc-final-name" style="color:var(--muted)">TBD</span></div></div></div>';
     const sc = m.home_score !== null
       ? '<span class="sc-final-score">' + m.home_score + ' – ' + m.away_score + '</span>'
       : '<span class="sc-final-score sc-pend">vs</span>';
     const mine = m.home_username === me || m.away_username === me;
     return '<div class="sc-final-leg' + (mine ? ' sc-mine' : '') + '">' +
-      '<span class="sc-leg-num">Leg ' + leg + '</span>' +
+      legLbl +
       '<div class="sc-final-players">' +
         '<div class="sc-final-player">' +
           '<div class="sc-avatar" style="background:' + avatarColor(m.home_username) + '">' + initials(m.home_username) + '</div>' +
@@ -314,15 +339,17 @@ function renderFinalBlock(pair, label, isFinished) {
       ? '<div class="sc-champion"><div class="sc-trophy">🏆</div><div class="sc-champ-label">Champion</div><div class="sc-champ-name">' + agg.winner + '</div></div>'
       : '';
   } else {
-    aggHtml = '<div class="sc-final-agg sc-pend-agg">Both legs pending…</div>';
+    aggHtml = '<div class="sc-final-agg sc-pend-agg">' + (bracketLegs === 1 ? 'Match pending…' : 'Both legs pending…') + '</div>';
     champHtml = '';
   }
 
+  const legsHtml = bracketLegs === 1
+    ? bigLegRow(pair ? pair.l1 : null, 1)
+    : (bigLegRow(pair ? pair.l1 : null, 1) + '<div class="sc-leg-divider"></div>' + bigLegRow(pair ? pair.l2 : null, 2));
+
   return '<div class="sc-round-label sc-final-label">' + label + '</div>' +
     '<div class="sc-final-card' + (myMatch ? ' sc-mytie' : '') + '">' +
-    bigLegRow(pair ? pair.l1 : null, 1) +
-    '<div class="sc-leg-divider"></div>' +
-    bigLegRow(pair ? pair.l2 : null, 2) +
+    legsHtml +
     aggHtml + '</div>' + champHtml;
 }
 
