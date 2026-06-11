@@ -85,7 +85,7 @@
       document.getElementById('view-championnat').style.display = 'none';
       document.getElementById('view-supercup').style.display = 'block';
       renderSupercupPending(allMatches, me, isAdmin);
-      renderBracket(allMatches, me, isAdmin);
+      renderBracket(allMatches, me, isAdmin, info);
       checkAdvanceBanner(allMatches, isAdmin);
     } else {
       document.getElementById('view-championnat').style.display = 'block';
@@ -198,16 +198,26 @@
   }
 
   // ── Bracket tree ─────────────────────────────────
-  function renderBracket(matches, me, isAdmin) {
+  function renderBracket(matches, me, isAdmin, info) {
     const el = document.getElementById('bracket-view');
-    // Group by round: pairs of consecutive matchdays (leg1=odd, leg2=even)
-    const maxMd = Math.max(...matches.map(function(m) { return m.matchday; }), 0);
+    const tLegs = (info && info.legs) ? parseInt(info.legs) : 2;
+    const mdStep = tLegs === 2 ? 2 : 1;
+    const maxMd = matches.length ? Math.max(...matches.map(function(m) { return m.matchday; })) : 0;
     const rounds = [];
-    for (let leg1Md = 1; leg1Md <= maxMd; leg1Md += 2) {
-      const leg2Md = leg1Md + 1;
+    for (let leg1Md = 1; leg1Md <= maxMd; leg1Md += mdStep) {
+      const leg2Md = tLegs === 2 ? leg1Md + 1 : null;
       const leg1Matches = matches.filter(function(m) { return m.matchday === leg1Md; });
-      const leg2Matches = matches.filter(function(m) { return m.matchday === leg2Md; });
+      const leg2Matches = leg2Md ? matches.filter(function(m) { return m.matchday === leg2Md; }) : [];
       if (leg1Matches.length) rounds.push({ leg1: leg1Matches, leg2: leg2Matches });
+    }
+
+    // Calculate total expected rounds and add future TBD rounds
+    const nPlayers = info && info.max_players ? info.max_players : (matches.length ? rounds[0].leg1.length * 2 : 0);
+    let expectedRounds = 0;
+    let n = nPlayers;
+    while (n > 1) { expectedRounds++; n = Math.ceil(n / 2); }
+    while (rounds.length < expectedRounds) {
+      rounds.push({ leg1: [], leg2: [], tbd: true });
     }
     if (!rounds.length) { el.innerHTML = '<p class="empty-msg" style="padding:1rem">No matches generated yet.</p>'; return; }
 
@@ -264,18 +274,37 @@
         legRow(l1, 1) + legRow(l2 || null, 2) + aggHtml + '</div>';
     }
 
+    const roundNames = ['Final', 'Semi-Final', 'Quarter-Final', 'Round of 16', 'Round of 32'];
+    function getRoundLabel(idx, total) {
+      const fromEnd = total - 1 - idx;
+      return roundNames[fromEnd] || ('Round ' + (idx + 1));
+    }
+
     let html = '<div class="bracket-wrap">';
     rounds.forEach(function(round, idx) {
-      const pairs = buildPairs(round);
-      const label = pairs[0].l1.round_label ? pairs[0].l1.round_label.replace(' — Leg 1','') : 'Round ' + (idx+1);
       const isLast = idx === rounds.length - 1;
+      const isTbd = round.tbd || round.leg1.length === 0;
+      const pairs = isTbd ? [] : buildPairs(round);
+      const label = (!isTbd && pairs.length && pairs[0].l1.round_label)
+        ? pairs[0].l1.round_label.replace(' — Leg 1', '').replace(' — Leg 2', '')
+        : getRoundLabel(idx, rounds.length);
 
       html += '<div class="bracket-col">';
       html += '<div class="bracket-col-label">' + label + '</div>';
       html += '<div class="bracket-slots">';
-      pairs.forEach(function(pair) {
-        html += pairHtml(pair, idx, isLast && pairs.length === 1);
-      });
+      if (isTbd) {
+        const slots = Math.pow(2, rounds.length - 1 - idx);
+        for (let s = 0; s < slots; s++) {
+          html += '<div class="bracket-pair-block">' +
+            '<div class="bracket-leg-row"><span class="bracket-leg-label">' + (tLegs === 2 ? 'Leg 1' : '') + '</span><span class="bracket-player" style="color:var(--muted)">TBD</span><span class="bracket-score pending">—</span><span class="bracket-player right" style="color:var(--muted)">TBD</span></div>' +
+            (tLegs === 2 ? '<div class="bracket-leg-row"><span class="bracket-leg-label">Leg 2</span><span class="bracket-player" style="color:var(--muted)">TBD</span><span class="bracket-score pending">—</span><span class="bracket-player right" style="color:var(--muted)">TBD</span></div>' : '') +
+            '<div class="bracket-agg">Awaiting previous round</div></div>';
+        }
+      } else {
+        pairs.forEach(function(pair) {
+          html += pairHtml(pair, idx, isLast && pairs.length === 1);
+        });
+      }
       html += '</div></div>';
 
       // Connector between columns
