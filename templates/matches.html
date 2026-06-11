@@ -3,7 +3,10 @@
 
 {% block content %}
 <style>
+  /* Matches page needs more room for the roster + full bracket */
+  main { max-width: 1200px !important; }
   @media (max-width: 900px) {
+    main { max-width: 720px !important; }
     .matches-layout { flex-direction:column !important; }
     .roster-panel { width:100% !important; position:static !important; }
   }
