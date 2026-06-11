@@ -520,6 +520,59 @@ main { max-width: 720px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
 }
 .sc-final-name { font-weight: 700; font-size: 0.95rem; }
 .sc-final-team { font-size: 0.72rem; color: var(--muted); display: block; }
+
+/* ── Mobile (≤600px) — additive only, desktop untouched ──────────── */
+@media (max-width: 600px) {
+  /* Navbar: brand on top, links scroll horizontally, compact */
+  .navbar {
+    flex-wrap: wrap;
+    height: auto;
+    padding: 8px 10px;
+    gap: 6px;
+    row-gap: 6px;
+  }
+  .nav-brand { font-size: 14px; order: 1; }
+  .nav-user { order: 2; gap: 6px; }
+  #nav-username { font-size: 12px; }
+  .nav-links {
+    order: 3;
+    width: 100%;
+    flex: 0 0 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 4px;
+    padding-bottom: 2px;
+  }
+  .nav-links::-webkit-scrollbar { height: 0; }
+  .nav-link { padding: 6px 12px; white-space: nowrap; flex: 0 0 auto; }
+
+  /* Tighter page padding */
+  main { padding: 1rem 0.75rem 2.5rem; }
+  .page-header { gap: 0.5rem; }
+
+  /* Supercup bracket: drop the full-bleed trick, let it scroll horizontally */
+  .sc-bracket {
+    width: 100%;
+    left: auto;
+    transform: none;
+    padding: 1rem 0.25rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    justify-content: flex-start;
+    min-height: 0;
+  }
+  .sc-col { min-width: 150px; gap: 10px; }
+  .sc-col-center { min-width: 170px; }
+  .sc-connector { width: 28px !important; }
+  .sc-connector svg { width: 28px !important; }
+  .sc-leg { padding: 7px 9px; font-size: 0.76rem; gap: 6px; }
+  .sc-score { min-width: 30px; }
+  .sc-final-name { font-size: 0.85rem; }
+  .sc-avatar { width: 28px; height: 28px; }
+
+  /* Result modal fits small screens */
+  .modal-box { max-width: 92vw; }
+}
 .sc-final-score { font-weight: 900; color: var(--gold); font-size: 1.2rem; min-width: 60px; text-align: center; }
 .sc-leg-divider { height: 1px; background: linear-gradient(90deg, transparent, #ffd70033, transparent); }
 .sc-final-agg { text-align: center; padding: 8px; background: #180e04; font-weight: 800; color: var(--gold); font-size: 0.9rem; }
