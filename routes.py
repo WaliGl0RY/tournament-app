@@ -86,6 +86,21 @@ def get_tournament_info(tid):
     return jsonify(dict(t))
 
 
+@routes_bp.route('/api/tournament/current')
+def get_current_tournament():
+    """Most relevant tournament for spectators: prefer active, then setup, most recent."""
+    db = get_db()
+    t = db.execute("""
+        SELECT * FROM tournaments
+        ORDER BY CASE status WHEN 'active' THEN 0 WHEN 'setup' THEN 1 ELSE 2 END,
+                 id DESC
+        LIMIT 1
+    """).fetchone()
+    db.close()
+    if not t: return jsonify({'error': 'No tournament'}), 404
+    return jsonify(dict(t))
+
+
 @routes_bp.route('/api/tournament/by-code/<invite_code>')
 def get_tournament_by_code(invite_code):
     db = get_db()
