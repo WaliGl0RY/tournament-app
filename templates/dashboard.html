@@ -63,11 +63,29 @@ async function loadDashboard() {
   }
   document.getElementById('page-tournament-name').textContent = name;
 
-  const [info, matches, standings] = await Promise.all([
+  let [info, matches, standings] = await Promise.all([
     api('/api/tournament/' + tid + '/info'),
     api('/api/tournament/' + tid + '/matches'),
     api('/api/tournament/' + tid + '/standings')
   ]);
+  // Stored tournament no longer exists (server DB reset) — switch to the live one
+  if (info && info.error) {
+    const current = await api('/api/tournament/current');
+    if (current && current.id) {
+      tid = current.id;
+      localStorage.setItem('tournament_id', current.id);
+      localStorage.setItem('tournament_name', current.name);
+      document.getElementById('page-tournament-name').textContent = current.name;
+      [info, matches, standings] = await Promise.all([
+        api('/api/tournament/' + tid + '/info'),
+        api('/api/tournament/' + tid + '/matches'),
+        api('/api/tournament/' + tid + '/standings')
+      ]);
+    } else {
+      document.getElementById('page-sub').textContent = 'No tournament running yet.';
+      return;
+    }
+  }
 
   // Show spectator banner if the logged-in user isn't playing in this tournament
   const isAdmin = me && me.toLowerCase() === 'walid';

@@ -73,17 +73,42 @@
   let allMatches = [], currentMatchId = null;
 
   async function loadMatches() {
-    const tid  = localStorage.getItem('tournament_id');
+    let tid  = localStorage.getItem('tournament_id');
     const me   = localStorage.getItem('username');
     const isAdmin = me && me.toLowerCase() === 'walid';
+    // Fall back to the live tournament when this device never stored a tournament_id
+    // (e.g. player logged in without the invite link, or was added by admin)
     if (!tid) {
-      document.getElementById('my-matches-list').innerHTML = '<p class="empty-msg">No tournament joined.</p>';
-      return;
+      const current = await api('/api/tournament/current');
+      if (current && current.id) {
+        tid = current.id;
+        localStorage.setItem('tournament_id', current.id);
+        localStorage.setItem('tournament_name', current.name);
+      } else {
+        document.getElementById('my-matches-list').innerHTML = '<p class="empty-msg">No tournament running yet.</p>';
+        return;
+      }
     }
-    const [info, matches] = await Promise.all([
+    let [info, matches] = await Promise.all([
       api('/api/tournament/' + tid + '/info'),
       api('/api/tournament/' + tid + '/matches')
     ]);
+    // Stored tournament no longer exists (e.g. server DB was reset) — switch to the live one
+    if (info && info.error) {
+      const current = await api('/api/tournament/current');
+      if (current && current.id) {
+        tid = current.id;
+        localStorage.setItem('tournament_id', current.id);
+        localStorage.setItem('tournament_name', current.name);
+        [info, matches] = await Promise.all([
+          api('/api/tournament/' + tid + '/info'),
+          api('/api/tournament/' + tid + '/matches')
+        ]);
+      } else {
+        document.getElementById('my-matches-list').innerHTML = '<p class="empty-msg">No tournament running yet.</p>';
+        return;
+      }
+    }
     allMatches = matches || [];
     const ttype = (info && info.tournament_type) || 'championnat';
     const isParticipant = isAdmin || allMatches.some(function(m) { return m.home_username === me || m.away_username === me; });
