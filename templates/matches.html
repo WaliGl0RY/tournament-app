@@ -137,17 +137,35 @@
   }
 
   function matchCard(m, isAction, me, isAdmin) {
-    const done     = m.home_score !== null;
-    const isMyMatch = isAdmin || m.home_username === me || m.away_username === me;
-    const canEnter  = !done && (isAdmin || isAction);
+    const done      = m.home_score !== null;
+    const hasPending = !done && m.pending_by != null;
+    const isMyMatch  = isAdmin || m.home_username === me || m.away_username === me;
+    const canEnter   = !done && !hasPending && (isAdmin || isAction);
+    const iSubmitted = hasPending && m.pending_by === me;
+    const canValidate= hasPending && (isAdmin || (isMyMatch && !iSubmitted));
     const half = m.leg === 2
       ? '<span class="half-badge second">2nd Half</span>'
       : '<span class="half-badge first">1st Half</span>';
-    const score = done
-      ? '<div class="confirmed-score">' + m.home_score + ' — ' + m.away_score + '<br><span class="confirmed-label">confirmed</span></div>'
-      : canEnter
-        ? '<button class="btn-enter" onclick="openModal(' + m.id + ',\'' + m.home_username + '\',\'' + m.away_username + '\')">Enter result</button>'
-        : '<div class="pending-score">vs</div>';
+    let score;
+    if (done) {
+      score = '<div class="confirmed-score">' + m.home_score + ' — ' + m.away_score + '<br><span class="confirmed-label">confirmed</span></div>';
+    } else if (hasPending) {
+      const pScore = m.pending_home_score + ' — ' + m.pending_away_score;
+      if (canValidate) {
+        score = '<div style="text-align:center">' +
+          '<div style="font-size:0.8rem;color:var(--muted);margin-bottom:4px">Proposed: <strong style="color:var(--text)">' + pScore + '</strong></div>' +
+          '<div style="display:flex;gap:6px;justify-content:center">' +
+          '<button class="btn-enter" style="background:linear-gradient(135deg,#1a7a1a,#27ae60);font-size:0.75rem;padding:4px 10px" onclick="validateResult(' + m.id + ',\'accept\')">✓ Validate</button>' +
+          '<button class="btn-enter" style="background:linear-gradient(135deg,#7a1a1a,#c0392b);font-size:0.75rem;padding:4px 10px" onclick="validateResult(' + m.id + ',\'reject\')">✗ Reject</button>' +
+          '</div></div>';
+      } else {
+        score = '<div style="text-align:center"><div style="font-size:0.8rem;color:var(--gold)">' + pScore + '</div><div style="font-size:0.72rem;color:var(--muted)">awaiting validation</div></div>';
+      }
+    } else if (canEnter) {
+      score = '<button class="btn-enter" onclick="openModal(' + m.id + ',\'' + m.home_username + '\',\'' + m.away_username + '\')">Enter result</button>';
+    } else {
+      score = '<div class="pending-score">vs</div>';
+    }
     return '<div class="match-card ' + (isMyMatch && !done ? 'my-match' : '') + '">' +
       '<div class="match-md">MD ' + m.matchday + half + ((!isAdmin && isMyMatch) ? ' <span class="you-tag">your match</span>' : '') + '</div>' +
       '<div class="match-row">' +
@@ -313,10 +331,21 @@
     const res = await api('/api/match/' + currentMatchId + '/result', 'POST', { home_score: hs, away_score: as_ });
     if (res.ok) {
       document.getElementById('modal-overlay').style.display = 'none';
+      if (res.pending) alert(res.msg);
       loadMatches();
     } else {
       errEl.textContent = res.error || 'Error submitting result.';
       errEl.style.display = 'block';
+    }
+  }
+
+  async function validateResult(matchId, action) {
+    const res = await api('/api/match/' + matchId + '/validate', 'POST', { action });
+    if (res.ok) {
+      if (res.msg) alert(res.msg);
+      loadMatches();
+    } else {
+      alert(res.error || 'Error.');
     }
   }
 

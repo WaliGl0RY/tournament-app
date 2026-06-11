@@ -76,6 +76,9 @@ def init_db():
         'ALTER TABLE tournaments ADD COLUMN legs INTEGER DEFAULT 2',
         'ALTER TABLE matches ADD COLUMN leg INTEGER DEFAULT 1',
         'ALTER TABLE matches ADD COLUMN round_label TEXT DEFAULT NULL',
+        'ALTER TABLE matches ADD COLUMN pending_home_score INTEGER DEFAULT NULL',
+        'ALTER TABLE matches ADD COLUMN pending_away_score INTEGER DEFAULT NULL',
+        'ALTER TABLE matches ADD COLUMN pending_by TEXT DEFAULT NULL',
         'ALTER TABLE users ADD COLUMN pin TEXT',
     ]:
         try:

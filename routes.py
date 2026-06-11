@@ -381,18 +381,26 @@ def submit_result(match_id):
         match = db.execute('SELECT * FROM matches WHERE id=?', (match_id,)).fetchone()
         if not match: return jsonify({'error': 'Match not found'}), 404
         my_part = db.execute('SELECT * FROM participants WHERE tournament_id=? AND user_id=?', (match['tournament_id'], session['user_id'])).fetchone()
-        if not is_walid():
+        if is_walid():
+            # Admin bypasses validation — direct override
+            hp = db.execute('SELECT u.username, p.team_name FROM participants p JOIN users u ON p.user_id=u.id WHERE p.id=?', (match['home_participant_id'],)).fetchone()
+            ap = db.execute('SELECT u.username, p.team_name FROM participants p JOIN users u ON p.user_id=u.id WHERE p.id=?', (match['away_participant_id'],)).fetchone()
+            db.execute('UPDATE matches SET home_score=?, away_score=?, submitted_at=CURRENT_TIMESTAMP, pending_home_score=NULL, pending_away_score=NULL, pending_by=NULL WHERE id=?', (hs, as_, match_id))
+            detail = f'{hp["username"]} ({hp["team_name"]}) {hs}–{as_} {ap["username"]} ({ap["team_name"]})'
+            log_event(db, 'result_overridden', match['tournament_id'], session['username'], detail)
+            db.commit()
+        else:
             if not my_part: return jsonify({'error': 'Not in this tournament'}), 403
             if my_part['id'] not in (match['home_participant_id'], match['away_participant_id']):
                 return jsonify({'error': 'Not your match'}), 403
-            if match['home_score'] is not None: return jsonify({'error': 'Result already submitted'}), 409
-        hp = db.execute('SELECT u.username, p.team_name FROM participants p JOIN users u ON p.user_id=u.id WHERE p.id=?', (match['home_participant_id'],)).fetchone()
-        ap = db.execute('SELECT u.username, p.team_name FROM participants p JOIN users u ON p.user_id=u.id WHERE p.id=?', (match['away_participant_id'],)).fetchone()
-        db.execute('UPDATE matches SET home_score=?, away_score=?, submitted_at=CURRENT_TIMESTAMP WHERE id=?', (hs, as_, match_id))
-        detail = f'{hp["username"]} ({hp["team_name"]}) {hs}–{as_} {ap["username"]} ({ap["team_name"]})'
-        event = 'result_overridden' if (match['home_score'] is not None and is_walid()) else 'result_submitted'
-        log_event(db, event, match['tournament_id'], session['username'], detail)
-        db.commit()
+            if match['home_score'] is not None: return jsonify({'error': 'Result already validated'}), 409
+            if match['pending_by'] == session['username']: return jsonify({'error': 'You already submitted — waiting for opponent to validate'}), 409
+            # Store as pending
+            db.execute('UPDATE matches SET pending_home_score=?, pending_away_score=?, pending_by=? WHERE id=?', (hs, as_, session['username'], match_id))
+            log_event(db, 'result_submitted', match['tournament_id'], session['username'], f'Pending validation ({hs}–{as_})')
+            db.commit()
+            return jsonify({'ok': True, 'pending': True, 'msg': 'Score submitted — waiting for opponent to validate.'})
+
 
         # Auto-advance supercup round when all current-round results are in
         tid_m = match['tournament_id']
@@ -422,6 +430,89 @@ def submit_result(match_id):
                             db2.execute("UPDATE tournaments SET status='finished' WHERE id=?", (tid_m,))
                             log_event(db2, 'tournament_finished', tid_m, 'system',
                                       f'Winner: {p["username"] if p else "?"}')
+                            db2.commit()
+                            auto_msg = f'tournament_finished:{p["username"] if p else "?"}'
+                        elif winners and len(winners) > 1:
+                            new_pairs = generate_knockout_pairs(winners)
+                            round_name = get_round_name(len(winners))
+                            next_md = max_md + 1
+                            for h, a in new_pairs:
+                                db2.execute('INSERT INTO matches (tournament_id, matchday, home_participant_id, away_participant_id, leg, round_label) VALUES (?,?,?,?,?,?)',
+                                           (tid_m, next_md, h, a, 1, round_name + (' — Leg 1' if t_legs == 2 else '')))
+                            if t_legs == 2:
+                                for h, a in new_pairs:
+                                    db2.execute('INSERT INTO matches (tournament_id, matchday, home_participant_id, away_participant_id, leg, round_label) VALUES (?,?,?,?,?,?)',
+                                               (tid_m, next_md + 1, a, h, 2, round_name + ' — Leg 2'))
+                            log_event(db2, 'round_advanced', tid_m, 'system', f'Auto-advanced to {round_name}')
+                            db2.commit()
+                            auto_msg = f'round_advanced:{round_name}'
+            db2.close()
+        except Exception as e:
+            log_event(db, 'auto_advance_error', tid_m, 'system', str(e))
+            db.commit()
+
+        return jsonify({'ok': True, 'auto': auto_msg})
+    finally:
+        db.close()
+
+
+@routes_bp.route('/api/match/<int:match_id>/validate', methods=['POST'])
+def validate_result(match_id):
+    err = require_login()
+    if err: return err
+    action = (request.get_json() or {}).get('action', 'accept')  # 'accept' or 'reject'
+    db = get_db()
+    try:
+        match = db.execute('SELECT * FROM matches WHERE id=?', (match_id,)).fetchone()
+        if not match: return jsonify({'error': 'Match not found'}), 404
+        if match['pending_by'] is None: return jsonify({'error': 'No pending score to validate'}), 409
+        if match['pending_by'] == session['username'] and not is_walid():
+            return jsonify({'error': 'You submitted this score — your opponent must validate'}), 403
+        my_part = db.execute('SELECT * FROM participants WHERE tournament_id=? AND user_id=?', (match['tournament_id'], session['user_id'])).fetchone()
+        if not is_walid():
+            if not my_part: return jsonify({'error': 'Not in this tournament'}), 403
+            if my_part['id'] not in (match['home_participant_id'], match['away_participant_id']):
+                return jsonify({'error': 'Not your match'}), 403
+        if action == 'reject':
+            db.execute('UPDATE matches SET pending_home_score=NULL, pending_away_score=NULL, pending_by=NULL WHERE id=?', (match_id,))
+            log_event(db, 'result_rejected', match['tournament_id'], session['username'], f'Score rejected, resubmission needed')
+            db.commit()
+            return jsonify({'ok': True, 'rejected': True, 'msg': 'Score rejected — both players can resubmit.'})
+        # Accept: move pending to official
+        hs, as_ = match['pending_home_score'], match['pending_away_score']
+        hp = db.execute('SELECT u.username, p.team_name FROM participants p JOIN users u ON p.user_id=u.id WHERE p.id=?', (match['home_participant_id'],)).fetchone()
+        ap = db.execute('SELECT u.username, p.team_name FROM participants p JOIN users u ON p.user_id=u.id WHERE p.id=?', (match['away_participant_id'],)).fetchone()
+        db.execute('UPDATE matches SET home_score=?, away_score=?, submitted_at=CURRENT_TIMESTAMP, pending_home_score=NULL, pending_away_score=NULL, pending_by=NULL WHERE id=?', (hs, as_, match_id))
+        detail = f'{hp["username"]} ({hp["team_name"]}) {hs}–{as_} {ap["username"]} ({ap["team_name"]})'
+        log_event(db, 'result_validated', match['tournament_id'], session['username'], detail)
+        db.commit()
+
+        # Reuse auto-advance logic
+        match_updated = db.execute('SELECT * FROM matches WHERE id=?', (match_id,)).fetchone()
+        tid_m = match['tournament_id']
+        auto_msg = None
+        try:
+            db2 = get_db()
+            t_row = db2.execute('SELECT * FROM tournaments WHERE id=?', (tid_m,)).fetchone()
+            if t_row and t_row['tournament_type'] == 'supercup' and t_row['status'] == 'active':
+                t_legs = int(t_row['legs'] or 2)
+                all_m = [dict(r) for r in db2.execute('SELECT * FROM matches WHERE tournament_id=?', (tid_m,)).fetchall()]
+                if all_m:
+                    max_md = max(m['matchday'] for m in all_m)
+                    if t_legs == 2:
+                        cur_round = [m for m in all_m if m['matchday'] in (max_md - 1, max_md)]
+                        leg1_md   = max_md - 1 if max_md > 1 else 1
+                    else:
+                        cur_round = [m for m in all_m if m['matchday'] == max_md]
+                        leg1_md   = max_md
+                    if cur_round and all(m['home_score'] is not None for m in cur_round):
+                        leg1_matches = [m for m in all_m if m['matchday'] == leg1_md]
+                        pairs = [(m['home_participant_id'], m['away_participant_id']) for m in leg1_matches]
+                        winners = get_aggregate_winners(pairs, all_m) if t_legs == 2 else get_single_leg_winners(pairs, all_m)
+                        if winners and len(winners) == 1:
+                            p = db2.execute('SELECT u.username FROM participants p JOIN users u ON p.user_id=u.id WHERE p.id=?', (winners[0],)).fetchone()
+                            db2.execute("UPDATE tournaments SET status='finished' WHERE id=?", (tid_m,))
+                            log_event(db2, 'tournament_finished', tid_m, 'system', f'Winner: {p["username"] if p else "?"}')
                             db2.commit()
                             auto_msg = f'tournament_finished:{p["username"] if p else "?"}'
                         elif winners and len(winners) > 1:
