@@ -562,7 +562,7 @@ main { max-width: 720px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
   main { padding: 1rem 0.75rem 2.5rem; }
   .page-header { gap: 0.5rem; }
 
-  /* Supercup bracket: drop the full-bleed trick, let it scroll horizontally */
+  /* Supercup bracket (Table): drop the full-bleed trick, scroll horizontally */
   .sc-bracket {
     width: 100%;
     left: auto;
@@ -581,6 +581,28 @@ main { max-width: 720px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
   .sc-score { min-width: 30px; }
   .sc-final-name { font-size: 0.85rem; }
   .sc-avatar { width: 28px; height: 28px; }
+
+  /* Bracket tree (Matches & Manage pages) — same swipe-scroll treatment */
+  .bracket-wrap {
+    padding: 1rem 0.5rem;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+  }
+  .bracket-col { min-width: 150px; }
+  .bracket-leg-row { padding: 6px 8px; font-size: 11px; gap: 5px; }
+  .bracket-leg-label { min-width: 30px; }
+  .bracket-connector { width: 26px !important; }
+  .bracket-connector svg { width: 26px !important; }
+  .bracket-champion { min-width: 110px; }
+
+  /* Hint that brackets are swipeable */
+  .bracket-wrap, .sc-bracket { scrollbar-width: thin; }
+  .bracket-wrap::-webkit-scrollbar, .sc-bracket::-webkit-scrollbar { height: 4px; }
+  .bracket-wrap::-webkit-scrollbar-thumb, .sc-bracket::-webkit-scrollbar-thumb { background: var(--gold); border-radius: 4px; }
+
+  /* Manage editable match rows: allow them to wrap/shrink, never overflow */
+  #manage-matches-list .match-row { flex-wrap: wrap; }
+  #manage-matches-list input { max-width: 60px; }
 
   /* Result modal fits small screens */
   .modal-box { max-width: 92vw; }
