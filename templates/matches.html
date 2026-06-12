@@ -36,6 +36,16 @@
 <div id="view-championnat">
   <div id="my-matches-section">
     <h3 class="section-label">Your pending matches</h3>
+    <div id="pending-filters" style="display:none;gap:10px;flex-wrap:wrap;margin-bottom:1rem">
+      <div>
+        <label class="form-label" style="margin-bottom:3px">Leg</label>
+        <select class="form-input" id="pending-leg" style="width:auto;min-width:150px" onchange="onPendingLegChange()"></select>
+      </div>
+      <div>
+        <label class="form-label" style="margin-bottom:3px">Journey</label>
+        <select class="form-input" id="pending-journey" style="width:auto;min-width:150px" onchange="applyPendingFilter()"></select>
+      </div>
+    </div>
     <div id="my-matches-list"><p class="empty-msg">Loading…</p></div>
   </div>
   <div id="all-matches-section" style="margin-top:2rem">
@@ -266,16 +276,62 @@
   }
 
   // ── Championnat ──────────────────────────────────
+  let myChampMatches = [];
+
   function renderChampionnatPending(matches, me, isAdmin) {
-    const pending = isAdmin
-      ? matches.filter(function(m) { return m.home_score === null; })
-      : matches.filter(function(m) { return m.home_score === null && (m.home_username === me || m.away_username === me); });
     const lbl = document.querySelector('#my-matches-section .section-label');
-    if (lbl) lbl.textContent = isAdmin ? 'All pending matches' : 'Your pending matches';
+    const filtersEl = document.getElementById('pending-filters');
     const el = document.getElementById('my-matches-list');
-    el.innerHTML = pending.length
-      ? pending.map(function(m) { return matchCard(m, true, me, isAdmin); }).join('')
-      : '<p class="empty-msg">' + (isAdmin ? 'No pending matches.' : 'No pending matches 🎉') + '</p>';
+
+    // Admin sees the full pending list (no per-journey filter)
+    if (isAdmin) {
+      if (lbl) lbl.textContent = 'All pending matches';
+      filtersEl.style.display = 'none';
+      const pending = matches.filter(function(m) { return m.home_score === null; });
+      el.innerHTML = pending.length
+        ? pending.map(function(m) { return matchCard(m, true, me, isAdmin); }).join('')
+        : '<p class="empty-msg">No pending matches.</p>';
+      return;
+    }
+
+    // Player: one match at a time, picked by leg + journey
+    if (lbl) lbl.textContent = 'Your matches';
+    filtersEl.style.display = 'flex';
+    myChampMatches = matches.filter(function(m) { return m.home_username === me || m.away_username === me; });
+
+    const legSel = document.getElementById('pending-leg');
+    let legOpts = '';
+    if (champLeg1Mds.length) legOpts += '<option value="1">First leg</option>';
+    if (champLeg2Mds.length) legOpts += '<option value="2">Second leg</option>';
+    legSel.innerHTML = legOpts || '<option value="1">First leg</option>';
+
+    // Default to the earliest journey where I still have a pending match
+    const order = champLeg1Mds.map(function(md){ return {leg:'1', md:md}; })
+                  .concat(champLeg2Mds.map(function(md){ return {leg:'2', md:md}; }));
+    const fp = order.find(function(o){ return myChampMatches.some(function(m){ return m.matchday === o.md && m.home_score === null; }); });
+    legSel.value = fp ? fp.leg : '1';
+    onPendingLegChange(fp ? fp.md : null);
+  }
+
+  function onPendingLegChange(presetMd) {
+    const leg = document.getElementById('pending-leg').value;
+    const mds = leg === '2' ? champLeg2Mds : champLeg1Mds;
+    const jSel = document.getElementById('pending-journey');
+    jSel.innerHTML = mds.map(function(md, i) {
+      return '<option value="' + md + '">Journey ' + (i + 1) + '</option>';
+    }).join('');
+    if (presetMd && mds.indexOf(presetMd) >= 0) jSel.value = presetMd;
+    applyPendingFilter();
+  }
+
+  function applyPendingFilter() {
+    const md = parseInt(document.getElementById('pending-journey').value);
+    const me = localStorage.getItem('username');
+    const el = document.getElementById('my-matches-list');
+    const mine = myChampMatches.filter(function(m) { return m.matchday === md; });
+    el.innerHTML = mine.length
+      ? mine.map(function(m) { return matchCard(m, true, me, false); }).join('')
+      : '<p class="empty-msg">No match for you in this journey.</p>';
   }
 
   function renderChampionnatAll(matches, me, isAdmin) {
