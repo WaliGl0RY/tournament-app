@@ -320,24 +320,50 @@
   }
 
   // ── Match list ────────────────────────────────────
+  let mLeg1Mds = [], mLeg2Mds = [];
+
   function renderMatches(matches, isSupercup) {
-    const matchdays = [...new Set(matches.map(function(m) { return m.matchday; }))].sort(function(a,b){return a-b;});
-    const filterEl  = document.getElementById('manage-md-filter');
-    const half = Math.ceil(matchdays.length / 2);
-    filterEl.innerHTML = matchdays.map(function(md) {
-      let label;
-      if (isSupercup) label = 'Leg ' + md;
-      else label = md <= half ? '1H MD' + md : '2H MD' + (md - half);
-      return '<button class="md-btn" id="mmd-btn-' + md + '" onclick="filterMD(' + md + ')">' + label + '</button>';
-    }).join('');
-    showMatches(matches, isSupercup);
+    const filterEl = document.getElementById('manage-md-filter');
+    if (isSupercup) {
+      const matchdays = [...new Set(matches.map(function(m){return m.matchday;}))].sort(function(a,b){return a-b;});
+      filterEl.innerHTML = matchdays.map(function(md) {
+        return '<button class="md-btn" id="mmd-btn-' + md + '" onclick="filterSupercupMD(' + md + ')">Leg ' + md + '</button>';
+      }).join('');
+      showMatches(matches, true);
+      return;
+    }
+    // Championnat: leg + journey dropdowns
+    mLeg1Mds = [...new Set(matches.filter(function(m){return Number(m.leg)!==2;}).map(function(m){return m.matchday;}))].sort(function(a,b){return a-b;});
+    mLeg2Mds = [...new Set(matches.filter(function(m){return Number(m.leg)===2;}).map(function(m){return m.matchday;}))].sort(function(a,b){return a-b;});
+    let legOpts = '';
+    if (mLeg1Mds.length) legOpts += '<option value="1">First leg</option>';
+    if (mLeg2Mds.length) legOpts += '<option value="2">Second leg</option>';
+    filterEl.innerHTML =
+      '<select class="form-input" id="m-filter-leg" style="width:auto;min-width:130px" onchange="onManageLegChange()">' + (legOpts || '<option value="1">First leg</option>') + '</select>' +
+      '<select class="form-input" id="m-filter-journey" style="width:auto;min-width:130px" onchange="applyManageFilter()"></select>';
+    onManageLegChange();
   }
 
-  function filterMD(md) {
+  function onManageLegChange() {
+    const leg = document.getElementById('m-filter-leg').value;
+    const mds = leg === '2' ? mLeg2Mds : mLeg1Mds;
+    const jSel = document.getElementById('m-filter-journey');
+    jSel.innerHTML = mds.map(function(md, i) {
+      return '<option value="' + md + '">Journey ' + (i + 1) + '</option>';
+    }).join('');
+    applyManageFilter();
+  }
+
+  function applyManageFilter() {
+    const md = parseInt(document.getElementById('m-filter-journey').value);
+    showMatches(allMatches.filter(function(m) { return m.matchday === md; }), false);
+  }
+
+  function filterSupercupMD(md) {
     document.querySelectorAll('#manage-md-filter .md-btn').forEach(function(b) { b.classList.remove('active'); });
     var btn = document.getElementById('mmd-btn-' + md);
     if (btn) btn.classList.add('active');
-    showMatches(allMatches.filter(function(m) { return m.matchday === md; }), tInfo && tInfo.tournament_type === 'supercup');
+    showMatches(allMatches.filter(function(m) { return m.matchday === md; }), true);
   }
 
   function showMatches(matches, isSupercup) {
@@ -349,9 +375,14 @@
         ? '<span style="font-weight:700;font-size:1.1rem;color:var(--gold)">' + m.home_score + ' — ' + m.away_score + '</span>'
         : '<span style="color:var(--muted)">vs</span>';
       const editBtn = '<button class="btn-ghost-sm" style="font-size:0.78rem" onclick="openEditModal(' + m.id + ',\'' + m.home_username + '\',\'' + m.away_username + '\',' + (done ? m.home_score : 0) + ',' + (done ? m.away_score : 0) + ')">' + (done ? '✏️ Edit' : '+ Enter') + '</button>';
-      const mdLabel = isSupercup
-        ? ((m.round_label || 'Round') + ' Leg ' + (m.leg || '?'))
-        : 'MD ' + m.matchday;
+      let mdLabel;
+      if (isSupercup) {
+        mdLabel = (m.round_label || 'Round') + ' Leg ' + (m.leg || '?');
+      } else {
+        const legNum = Number(m.leg) === 2 ? 2 : 1;
+        const jn = (legNum === 2 ? mLeg2Mds : mLeg1Mds).indexOf(m.matchday) + 1;
+        mdLabel = (jn > 0 ? 'Journey ' + jn : 'MD ' + m.matchday) + ' · ' + (legNum === 2 ? '2nd leg' : '1st leg');
+      }
       return '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)11;flex-wrap:wrap">' +
         '<span style="font-size:0.78rem;color:var(--muted);min-width:100px">' + mdLabel + '</span>' +
         '<div style="flex:1;display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
