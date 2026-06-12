@@ -537,14 +537,14 @@ def validate_result(match_id):
         match = db.execute('SELECT * FROM matches WHERE id=?', (match_id,)).fetchone()
         if not match: return jsonify({'error': 'Match not found'}), 404
         if match['pending_by'] is None: return jsonify({'error': 'No pending score to validate'}), 409
-        if match['pending_by'] == session['username'] and not is_walid():
+        privileged = is_walid() or is_supervisor()
+        if match['pending_by'] == session['username'] and not privileged:
             return jsonify({'error': 'You submitted this score — your opponent must validate'}), 403
         my_part = db.execute('SELECT * FROM participants WHERE tournament_id=? AND user_id=?', (match['tournament_id'], session['user_id'])).fetchone()
-        if not is_walid():
+        if not privileged:
             if not my_part: return jsonify({'error': 'Not in this tournament'}), 403
             if my_part['id'] not in (match['home_participant_id'], match['away_participant_id']):
-                if not is_supervisor():
-                    return jsonify({'error': 'Not your match'}), 403
+                return jsonify({'error': 'Not your match'}), 403
         if action == 'reject':
             db.execute('UPDATE matches SET pending_home_score=NULL, pending_away_score=NULL, pending_by=NULL WHERE id=?', (match_id,))
             log_event(db, 'result_rejected', match['tournament_id'], session['username'], f'Score rejected, resubmission needed')

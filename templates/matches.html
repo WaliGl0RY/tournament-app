@@ -141,7 +141,9 @@
   async function loadMatches() {
     let tid  = localStorage.getItem('tournament_id');
     const me   = localStorage.getItem('username');
-    const isAdmin = me && me.toLowerCase() === 'walid';
+    const isWalid = me && me.toLowerCase() === 'walid';
+    // Supervisors share admin-level powers: enter/validate any match
+    const isAdmin = isWalid || localStorage.getItem('is_supervisor') == '1';
     // Fall back to the live tournament when this device never stored a tournament_id
     // (e.g. player logged in without the invite link, or was added by admin)
     if (!tid) {
@@ -188,7 +190,7 @@
       document.getElementById('view-supercup').style.display = 'block';
       renderSupercupPending(allMatches, me, isAdmin);
       renderBracket(allMatches, me, isAdmin, info);
-      checkAdvanceBanner(allMatches, isAdmin);
+      checkAdvanceBanner(allMatches, isWalid);
     } else {
       document.getElementById('view-championnat').style.display = 'block';
       document.getElementById('view-supercup').style.display = 'none';
