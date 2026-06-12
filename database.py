@@ -80,6 +80,8 @@ def init_db():
         'ALTER TABLE matches ADD COLUMN pending_away_score INTEGER DEFAULT NULL',
         'ALTER TABLE matches ADD COLUMN pending_by TEXT DEFAULT NULL',
         'ALTER TABLE users ADD COLUMN pin TEXT',
+        'ALTER TABLE users ADD COLUMN is_supervisor INTEGER DEFAULT 0',
+        'ALTER TABLE tournaments ADD COLUMN name_updated_at TIMESTAMP DEFAULT NULL',
     ]:
         try:
             c.execute(migration)

@@ -17,6 +17,16 @@ def require_login():
 def is_walid():
     return session.get('username', '').lower() == LOG_ADMIN
 
+def is_supervisor():
+    if 'user_id' not in session:
+        return False
+    db = get_db()
+    try:
+        u = db.execute('SELECT is_supervisor FROM users WHERE id=?', (session['user_id'],)).fetchone()
+        return bool(u and u['is_supervisor'])
+    finally:
+        db.close()
+
 
 # ── Pages ──────────────────────────────────────────────────────────
 @routes_bp.route('/')
@@ -338,12 +348,29 @@ def advance_round(tid):
             leg1_matches = [m for m in all_matches if m['matchday'] == leg1_md]
             cur_matches  = leg1_matches
 
-        # Fill missing scores with 0 (walkover)
-        for m in cur_matches:
-            if m['home_score'] is None:
-                db.execute('UPDATE matches SET home_score=0, away_score=0 WHERE id=?', (m['id'],))
-        db.commit()
-        all_matches = [dict(m) for m in db.execute('SELECT * FROM matches WHERE tournament_id=?', (tid,)).fetchall()]
+        # Check for missing results
+        missing = [m for m in cur_matches if m['home_score'] is None]
+        force = (request.get_json(silent=True) or {}).get('force', False)
+
+        if missing and not force:
+            # Tell client which matches are pending — do NOT touch DB
+            missing_info = []
+            for m in missing:
+                hp = db.execute('SELECT u.username FROM participants p JOIN users u ON p.user_id=u.id WHERE p.id=?', (m['home_participant_id'],)).fetchone()
+                ap = db.execute('SELECT u.username FROM participants p JOIN users u ON p.user_id=u.id WHERE p.id=?', (m['away_participant_id'],)).fetchone()
+                missing_info.append(f'MD{m["matchday"]}: {hp["username"] if hp else "?"} vs {ap["username"] if ap else "?"}')
+            return jsonify({'error': 'pending', 'missing': missing_info}), 409
+
+        if missing and force:
+            # Explicit force — write 0-0 walkovers
+            for m in missing:
+                db.execute('UPDATE matches SET home_score=0, away_score=0, submitted_at=CURRENT_TIMESTAMP WHERE id=?', (m['id'],))
+                hp = db.execute('SELECT u.username FROM participants p JOIN users u ON p.user_id=u.id WHERE p.id=?', (m['home_participant_id'],)).fetchone()
+                ap = db.execute('SELECT u.username FROM participants p JOIN users u ON p.user_id=u.id WHERE p.id=?', (m['away_participant_id'],)).fetchone()
+                log_event(db, 'walkover', tid, session['username'],
+                          f'Force advance — {hp["username"] if hp else "?"} vs {ap["username"] if ap else "?"} set to 0-0')
+            db.commit()
+            all_matches = [dict(m) for m in db.execute('SELECT * FROM matches WHERE tournament_id=?', (tid,)).fetchall()]
 
         pairs = [(m['home_participant_id'], m['away_participant_id']) for m in leg1_matches]
         winners = get_aggregate_winners(pairs, all_matches) if legs == 2 else get_single_leg_winners(pairs, all_matches)
@@ -423,18 +450,20 @@ def submit_result(match_id):
         match = db.execute('SELECT * FROM matches WHERE id=?', (match_id,)).fetchone()
         if not match: return jsonify({'error': 'Match not found'}), 404
         my_part = db.execute('SELECT * FROM participants WHERE tournament_id=? AND user_id=?', (match['tournament_id'], session['user_id'])).fetchone()
-        if is_walid():
-            # Admin bypasses validation — direct override
+        if is_walid() or is_supervisor():
+            # Admin/supervisor bypasses validation — direct override
             hp = db.execute('SELECT u.username, p.team_name FROM participants p JOIN users u ON p.user_id=u.id WHERE p.id=?', (match['home_participant_id'],)).fetchone()
             ap = db.execute('SELECT u.username, p.team_name FROM participants p JOIN users u ON p.user_id=u.id WHERE p.id=?', (match['away_participant_id'],)).fetchone()
             db.execute('UPDATE matches SET home_score=?, away_score=?, submitted_at=CURRENT_TIMESTAMP, pending_home_score=NULL, pending_away_score=NULL, pending_by=NULL WHERE id=?', (hs, as_, match_id))
             detail = f'{hp["username"]} ({hp["team_name"]}) {hs}–{as_} {ap["username"]} ({ap["team_name"]})'
-            log_event(db, 'result_overridden', match['tournament_id'], session['username'], detail)
+            ev = 'result_overridden' if is_walid() else 'result_entered_by_supervisor'
+            log_event(db, ev, match['tournament_id'], session['username'], detail)
             db.commit()
         else:
             if not my_part: return jsonify({'error': 'Not in this tournament'}), 403
             if my_part['id'] not in (match['home_participant_id'], match['away_participant_id']):
-                return jsonify({'error': 'Not your match'}), 403
+                if not is_supervisor():
+                    return jsonify({'error': 'Not your match'}), 403
             if match['home_score'] is not None: return jsonify({'error': 'Result already validated'}), 409
             if match['pending_by'] == session['username']: return jsonify({'error': 'You already submitted — waiting for opponent to validate'}), 409
             # Store as pending
@@ -514,7 +543,8 @@ def validate_result(match_id):
         if not is_walid():
             if not my_part: return jsonify({'error': 'Not in this tournament'}), 403
             if my_part['id'] not in (match['home_participant_id'], match['away_participant_id']):
-                return jsonify({'error': 'Not your match'}), 403
+                if not is_supervisor():
+                    return jsonify({'error': 'Not your match'}), 403
         if action == 'reject':
             db.execute('UPDATE matches SET pending_home_score=NULL, pending_away_score=NULL, pending_by=NULL WHERE id=?', (match_id,))
             log_event(db, 'result_rejected', match['tournament_id'], session['username'], f'Score rejected, resubmission needed')
@@ -589,7 +619,7 @@ def get_users():
     if not is_walid(): return jsonify({'error': 'Access denied'}), 403
     db = get_db()
     try:
-        rows = db.execute('SELECT id, username, pin, is_admin FROM users ORDER BY username').fetchall()
+        rows = db.execute('SELECT id, username, pin, is_admin, is_supervisor FROM users ORDER BY username').fetchall()
         return jsonify([dict(r) for r in rows])
     finally:
         db.close()
@@ -635,6 +665,56 @@ def available_teams():
 @routes_bp.route('/api/teams/leagues')
 def list_leagues():
     return jsonify(get_leagues())
+
+
+
+# ── Set supervisor role ────────────────────────────────────────────
+@routes_bp.route('/api/user/<int:uid>/set-supervisor', methods=['POST'])
+def set_supervisor(uid):
+    err = require_login()
+    if err: return err
+    if not is_walid(): return jsonify({'error': 'Admin only'}), 403
+    data = request.get_json() or {}
+    val = 1 if data.get('supervisor') else 0
+    db = get_db()
+    try:
+        u = db.execute('SELECT id, username FROM users WHERE id=?', (uid,)).fetchone()
+        if not u: return jsonify({'error': 'User not found'}), 404
+        db.execute('UPDATE users SET is_supervisor=? WHERE id=?', (val, uid))
+        log_event(db, 'supervisor_set', None, session['username'],
+                  f'{u["username"]} supervisor={bool(val)}')
+        db.commit()
+        return jsonify({'ok': True, 'supervisor': bool(val)})
+    finally:
+        db.close()
+
+
+# ── Update tournament info ─────────────────────────────────────────
+@routes_bp.route('/api/tournament/<int:tid>/update', methods=['POST'])
+def update_tournament(tid):
+    err = require_login()
+    if err: return err
+    if not is_walid(): return jsonify({'error': 'Admin only'}), 403
+    data = request.get_json() or {}
+    db = get_db()
+    try:
+        t = db.execute('SELECT * FROM tournaments WHERE id=?', (tid,)).fetchone()
+        if not t: return jsonify({'error': 'Not found'}), 404
+        updates = []
+        params  = []
+        if 'name' in data and data['name'].strip():
+            updates.append('name=?')
+            params.append(data['name'].strip())
+        if not updates:
+            return jsonify({'error': 'Nothing to update'}), 400
+        params.append(tid)
+        db.execute(f'UPDATE tournaments SET {", ".join(updates)} WHERE id=?', params)
+        log_event(db, 'tournament_updated', tid, session['username'],
+                  '; '.join(f'{k}={v}' for k, v in data.items()))
+        db.commit()
+        return jsonify({'ok': True})
+    finally:
+        db.close()
 
 
 # ── Delete tournament ──────────────────────────────────────────────
