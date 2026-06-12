@@ -52,6 +52,15 @@
   </div>
 </div>
 
+<!-- Scores awaiting validation -->
+<div class="card" id="validation-card" style="margin-top:1rem;display:none;border-color:var(--gold)44">
+  <div class="step-header" style="margin-bottom:1rem">
+    <span class="step-title">⏳ Scores awaiting validation</span>
+    <span style="font-size:0.8rem;color:var(--muted)">A player entered these — confirm or reject</span>
+  </div>
+  <div id="validation-list" style="display:flex;flex-direction:column;gap:8px"></div>
+</div>
+
 <!-- All Matches — editable list -->
 <div class="card" style="margin-top:1rem;padding:0;overflow:hidden">
   <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
@@ -194,7 +203,41 @@
       document.getElementById('bracket-admin-wrap').style.display = 'none';
     }
     renderMatches(allMatches, isSupercup);
+    renderValidationQueue(allMatches, isSupercup);
     renderSupercupControls(info, allMatches);
+  }
+
+  // ── Scores awaiting validation ───────────────────
+  function renderValidationQueue(matches, isSupercup) {
+    const card = document.getElementById('validation-card');
+    const el   = document.getElementById('validation-list');
+    const queue = matches.filter(function(m){ return m.home_score === null && m.pending_by != null; });
+    if (!queue.length) { card.style.display = 'none'; return; }
+    card.style.display = 'block';
+    el.innerHTML = queue.map(function(m) {
+      const journey = isSupercup
+        ? ((m.round_label || 'Round') + ' · Leg ' + (m.leg || '?'))
+        : ('MD ' + m.matchday);
+      return '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;background:var(--surface2);flex-wrap:wrap">' +
+        '<span style="font-size:0.75rem;color:var(--muted);min-width:90px">' + journey + '</span>' +
+        '<div style="flex:1;min-width:160px;text-align:center">' +
+          '<span style="font-weight:600">' + m.home_username + '</span> ' +
+          '<span style="font-weight:800;color:var(--gold);margin:0 6px">' + m.pending_home_score + ' – ' + m.pending_away_score + '</span> ' +
+          '<span style="font-weight:600">' + m.away_username + '</span>' +
+          '<div style="font-size:0.72rem;color:var(--muted)">entered by ' + m.pending_by + '</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:6px">' +
+          '<button class="btn-enter" style="background:linear-gradient(135deg,#1a7a1a,#27ae60);font-size:0.78rem;padding:5px 12px" onclick="validateMatch(' + m.id + ',\'accept\')">✓ Validate</button>' +
+          '<button class="btn-enter" style="background:linear-gradient(135deg,#7a1a1a,#c0392b);font-size:0.78rem;padding:5px 12px" onclick="validateMatch(' + m.id + ',\'reject\')">✗ Reject</button>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  async function validateMatch(matchId, action) {
+    const res = await api('/api/match/' + matchId + '/validate', 'POST', { action });
+    if (res.ok) { loadAll(); }
+    else { alert(res.error || 'Error.'); }
   }
 
   function renderInfoBar(info, parts) {

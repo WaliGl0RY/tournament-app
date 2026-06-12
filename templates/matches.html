@@ -285,18 +285,7 @@
     const filtersEl = document.getElementById('pending-filters');
     const el = document.getElementById('my-matches-list');
 
-    // Admin/supervisor: only matches with a score entered & awaiting validation
-    if (isAdmin) {
-      if (lbl) lbl.textContent = 'Scores awaiting validation';
-      filtersEl.style.display = 'none';
-      const pending = matches.filter(function(m) { return m.home_score === null && m.pending_by != null; });
-      el.innerHTML = pending.length
-        ? pending.map(function(m) { return matchCard(m, true, me, isAdmin); }).join('')
-        : '<p class="empty-msg">No scores awaiting validation.</p>';
-      return;
-    }
-
-    // Player: one match at a time, picked by leg + journey
+    // Everyone: next match first, with leg + journey selector to view others
     if (lbl) lbl.textContent = 'Your matches';
     filtersEl.style.display = 'flex';
     myChampMatches = matches.filter(function(m) { return m.home_username === me || m.away_username === me; });
@@ -414,14 +403,10 @@
 
   // ── Supercup pending ─────────────────────────────
   function renderSupercupPending(matches, me, isAdmin) {
-    const pending = isAdmin
-      ? matches.filter(function(m) { return m.home_score === null && m.pending_by != null; })
-      : matches.filter(function(m) { return m.home_score === null && (m.home_username === me || m.away_username === me); });
-    const lbl = document.querySelector('#my-matches-supercup .section-label');
-    if (lbl) lbl.textContent = isAdmin ? 'Scores awaiting validation' : 'Your pending matches';
+    const pending = matches.filter(function(m) { return m.home_score === null && (m.home_username === me || m.away_username === me); });
     const el = document.getElementById('my-supercup-list');
     if (!pending.length) {
-      el.innerHTML = '<p class="empty-msg">' + (isAdmin ? 'No scores awaiting validation.' : 'No pending matches 🎉') + '</p>';
+      el.innerHTML = '<p class="empty-msg">No pending matches 🎉</p>';
       return;
     }
     el.innerHTML = pending.map(function(m) {
