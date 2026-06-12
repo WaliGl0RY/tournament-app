@@ -23,7 +23,7 @@ def register():
         session['user_id'] = user['id']
         session['username'] = user['username']
         session['is_admin'] = user['is_admin']
-        return jsonify({'ok': True, 'username': username, 'is_admin': user['is_admin']})
+        return jsonify({'ok': True, 'username': username, 'is_admin': user['is_admin'], 'is_supervisor': 0})
     except Exception:
         return jsonify({'error': 'Username already taken'}), 409
     finally:
@@ -46,7 +46,8 @@ def login():
     session['user_id'] = user['id']
     session['username'] = user['username']
     session['is_admin'] = user['is_admin']
-    return jsonify({'ok': True, 'username': username, 'is_admin': user['is_admin']})
+    sup = user['is_supervisor'] if 'is_supervisor' in user.keys() else 0
+    return jsonify({'ok': True, 'username': username, 'is_admin': user['is_admin'], 'is_supervisor': sup})
 
 
 @auth_bp.route('/api/logout', methods=['POST'])
@@ -59,9 +60,14 @@ def logout():
 def me():
     if 'user_id' not in session:
         return jsonify({'logged_in': False}), 401
+    db = get_db()
+    u = db.execute('SELECT is_supervisor FROM users WHERE id=?', (session['user_id'],)).fetchone()
+    db.close()
+    sup = (u['is_supervisor'] if u and 'is_supervisor' in u.keys() else 0)
     return jsonify({
         'logged_in': True,
         'user_id': session['user_id'],
         'username': session['username'],
-        'is_admin': session.get('is_admin', 0)
+        'is_admin': session.get('is_admin', 0),
+        'is_supervisor': sup
     })

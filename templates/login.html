@@ -68,6 +68,7 @@
       if (res.ok) {
         localStorage.setItem('username', res.username);
         localStorage.setItem('is_admin', res.is_admin || 0);
+        localStorage.setItem('is_supervisor', res.is_supervisor || 0);
 
         if (INVITE_CODE) {
           // Join the tournament this link belongs to

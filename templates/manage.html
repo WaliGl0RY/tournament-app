@@ -71,14 +71,18 @@
 </div>
 
 
-<!-- Supervisor management -->
-<div class="card" id="supervisor-panel" style="margin-top:1rem">
+<!-- Supervisor management (walid only) -->
+<div class="card" id="supervisor-panel" style="margin-top:1rem;display:none">
   <div class="step-header" style="margin-bottom:1rem">
     <span class="step-title">👮 Supervisors</span>
     <span style="font-size:0.8rem;color:var(--muted)">Supervisors can enter scores for any match</span>
   </div>
   <div id="supervisor-list" style="display:flex;flex-direction:column;gap:8px">
     <p class="empty-msg">Loading…</p>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px;margin-top:1rem">
+    <button class="btn-primary" id="save-sup-btn" style="width:auto;padding:9px 20px" onclick="saveSupervisors()">✓ Confirm supervisors</button>
+    <span id="sup-save-msg" style="font-size:0.9rem;display:none"></span>
   </div>
 </div>
 
@@ -127,6 +131,16 @@
 <script>
   let tid = localStorage.getItem('tournament_id');
   let allMatches = [], editMatchId = null, tInfo = null;
+  const isWalid = (localStorage.getItem('username') || '').toLowerCase() === 'walid';
+
+  // Walid-only controls: supervisor panel, rename, delete tournament
+  if (!isWalid) {
+    const sp = document.getElementById('supervisor-panel'); if (sp) sp.style.display = 'none';
+    document.querySelectorAll('[onclick="openRenameModal()"]').forEach(function(b){ b.style.display = 'none'; });
+    document.querySelectorAll('[onclick="deleteTournament()"]').forEach(function(b){
+      const zone = b.closest('div'); if (zone) zone.style.display = 'none';
+    });
+  }
 
   async function loadAll() {
     // Fall back to the live tournament if this device has no / a stale stored id
@@ -141,11 +155,10 @@
         return;
       }
     }
-    let [info, parts, matches, users] = await Promise.all([
+    let [info, parts, matches] = await Promise.all([
       api('/api/tournament/' + tid + '/info'),
       api('/api/tournament/' + tid + '/participants'),
-      api('/api/tournament/' + tid + '/matches'),
-      api('/api/admin/users')
+      api('/api/tournament/' + tid + '/matches')
     ]);
     // Stored tournament no longer exists — switch to the current live one
     if (info && info.error) {
@@ -154,11 +167,10 @@
         tid = current.id;
         localStorage.setItem('tournament_id', current.id);
         localStorage.setItem('tournament_name', current.name);
-        [info, parts, matches, users] = await Promise.all([
+        [info, parts, matches] = await Promise.all([
           api('/api/tournament/' + tid + '/info'),
           api('/api/tournament/' + tid + '/participants'),
-          api('/api/tournament/' + tid + '/matches'),
-          api('/api/admin/users')
+          api('/api/tournament/' + tid + '/matches')
         ]);
       } else {
         document.getElementById('t-info-name').textContent = 'No active tournament';
@@ -168,7 +180,12 @@
     tInfo = info; allMatches = matches || [];
     renderInfoBar(info, parts);
     renderParticipants(parts);
-    renderSupervisors(users || []);
+    // Supervisor management is walid-only
+    if (isWalid) {
+      document.getElementById('supervisor-panel').style.display = 'block';
+      const users = await api('/api/admin/users');
+      renderSupervisors(users || []);
+    }
     const isSupercup = info && info.tournament_type === 'supercup';
     if (isSupercup) {
       document.getElementById('bracket-admin-wrap').style.display = 'block';
@@ -447,33 +464,63 @@
   }
 
   // ── Supervisors ──────────────────────────────────
+  let supOriginal = {};   // uid -> original is_supervisor (0/1)
+  let supUsers = [];
+
   function renderSupervisors(users) {
     const el = document.getElementById('supervisor-list');
-    if (!users.length) { el.innerHTML = '<p class="empty-msg">No users.</p>'; return; }
-    // Exclude walid (always admin)
-    const filtered = users.filter(function(u) { return u.username && u.username.toLowerCase() !== 'walid'; });
-    if (!filtered.length) { el.innerHTML = '<p class="empty-msg">No other users.</p>'; return; }
-    el.innerHTML = filtered.map(function(u) {
+    supUsers = (users || []).filter(function(u) { return u.username && u.username.toLowerCase() !== 'walid'; });
+    supOriginal = {};
+    supUsers.forEach(function(u) { supOriginal[u.id] = u.is_supervisor ? 1 : 0; });
+    document.getElementById('sup-save-msg').style.display = 'none';
+    if (!supUsers.length) { el.innerHTML = '<p class="empty-msg">No other users.</p>'; return; }
+    el.innerHTML = supUsers.map(function(u) {
       const isSup = u.is_supervisor ? true : false;
       return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-radius:8px;background:var(--surface2)">' +
         '<div style="display:flex;align-items:center;gap:10px">' +
           '<span style="width:32px;height:32px;border-radius:50%;background:' + avatarColor(u.username) + ';display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700">' + initials(u.username) + '</span>' +
           '<span style="font-weight:600">' + u.username + '</span>' +
-          (isSup ? '<span style="font-size:0.75rem;padding:2px 8px;border-radius:10px;background:var(--gold)33;color:var(--gold);font-weight:700">Supervisor</span>' : '') +
+          '<span id="sup-badge-' + u.id + '" style="font-size:0.75rem;padding:2px 8px;border-radius:10px;background:var(--gold)33;color:var(--gold);font-weight:700;display:' + (isSup ? 'inline-block' : 'none') + '">Supervisor</span>' +
         '</div>' +
         '<label style="display:flex;align-items:center;gap:6px;cursor:pointer">' +
-          '<input type="checkbox" ' + (isSup ? 'checked' : '') + ' onchange="toggleSupervisor(' + u.id + ', this.checked)" style="width:16px;height:16px;cursor:pointer">' +
+          '<input type="checkbox" id="sup-cb-' + u.id + '" ' + (isSup ? 'checked' : '') + ' style="width:16px;height:16px;cursor:pointer">' +
           '<span style="font-size:0.85rem;color:var(--muted)">Supervisor</span>' +
         '</label>' +
       '</div>';
     }).join('');
   }
-  async function toggleSupervisor(uid, val) {
-    const res = await api('/api/user/' + uid + '/set-supervisor', 'POST', { supervisor: val });
-    if (!res.ok) {
-      alert(res.error || 'Error updating supervisor role.');
-      await loadAll(); // revert UI
+
+  async function saveSupervisors() {
+    const msg = document.getElementById('sup-save-msg');
+    const btn = document.getElementById('save-sup-btn');
+    // Find what changed
+    const changes = supUsers.filter(function(u) {
+      const cb = document.getElementById('sup-cb-' + u.id);
+      return cb && (cb.checked ? 1 : 0) !== supOriginal[u.id];
+    });
+    if (!changes.length) {
+      msg.textContent = 'No changes to save.';
+      msg.style.color = 'var(--muted)'; msg.style.display = 'inline';
+      return;
     }
+    btn.disabled = true; btn.textContent = 'Saving…';
+    const added = [], removed = [];
+    for (const u of changes) {
+      const want = document.getElementById('sup-cb-' + u.id).checked;
+      const res = await api('/api/user/' + u.id + '/set-supervisor', 'POST', { supervisor: want });
+      if (res.ok) {
+        supOriginal[u.id] = want ? 1 : 0;
+        const badge = document.getElementById('sup-badge-' + u.id);
+        if (badge) badge.style.display = want ? 'inline-block' : 'none';
+        (want ? added : removed).push(u.username);
+      }
+    }
+    btn.disabled = false; btn.textContent = '✓ Confirm supervisors';
+    let parts = [];
+    if (added.length)   parts.push('✅ Added as supervisor: ' + added.join(', '));
+    if (removed.length) parts.push('➖ Removed: ' + removed.join(', '));
+    msg.innerHTML = parts.join(' &nbsp;|&nbsp; ');
+    msg.style.color = 'var(--gold)'; msg.style.display = 'inline';
   }
 
 
