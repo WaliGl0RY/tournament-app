@@ -20,12 +20,17 @@
   <a href="#how-it-grew"><img src="docs/badges/nav-grew.svg" alt="How it grew"></a>
   <a href="#concepts-in-practice"><img src="docs/badges/nav-concepts.svg" alt="Concepts"></a>
   <a href="#quick-start"><img src="docs/badges/nav-quickstart.svg" alt="Quick start"></a>
+  <a href="#deployment"><img src="docs/badges/nav-deploy.svg" alt="Deployment"></a>
   <a href="#project-structure"><img src="docs/badges/nav-structure.svg" alt="Structure"></a>
 </p>
 
 <p align="center">
   <img src="docs/demo.gif" alt="Demo: log in, league table, opponent validates a score, table updates, knockout bracket, champion celebration" width="820">
 </p>
+
+## Why I built it
+
+> **[CHECK]** *Draft, rewrite in your own words:* My friends and I play FC26 together, and we wanted a real tournament: a league table, knockout rounds, and results everyone agrees on. I had just learned in BVS2 how clients and servers talk to each other, and I realised that was enough to build it myself.
 
 ## Features
 
@@ -170,44 +175,32 @@ flowchart LR
 | 11.06, 01:54–02:45 | 3 | Remove player, **score validation**, manual team assignment |
 | 11.06, 04:03–05:30 | 17 | The presentation push: bracket with TBD rounds, spectator mode, banners, Squad Sheet, champion celebration, then the mobile layout |
 | **12.06.2026**, 21:58–22:47 | 9 | Tools for running it live: supervisors, walkover, team reassignment, rename, leg and matchday filters, validation queue |
-| **29.09.2026** | 6 | Cleanup: configurable admin, single-leg bracket fix, demo data, this README |
+| **29.09.2026** | 7 | Cleanup: configurable admin, single-leg bracket fix, demo data, this README |
 
 <a name="concepts-in-practice"></a>
 ## Concepts in practice
 
-Where topics from the module *Betriebssysteme und Verteilte Systeme 2* (TH Köln) show up in this code.
+Where topics from the module *Betriebssysteme und Verteilte Systeme 2* (TH Köln) show up in this code. Each excerpt is the smallest piece that shows the idea, with one comment per line; the link under it leads to the full code.
 
 <details>
 <summary><b>Client-server with a REST-style JSON API</b> · the browser asks, Flask answers in JSON</summary>
 <br>
 
-**In plain words.** The browser only draws. Each page loads as an almost empty shell, then its JavaScript asks the server for data and renders it. The server never builds a table or a bracket into HTML: it answers requests such as `GET /api/tournament/2/matches` or `POST /api/match/17/validate` with JSON. The things the app works with (tournaments, matches, participants) each have their own URL, and the HTTP method says what happens to them. It's REST-*style* rather than strict REST, because a few endpoints like `/start` or `/advance-round` are actions, not resources.
+**In plain words.** The browser is the client and only draws. The Flask app is the server and only answers. Every page asks for its data with an HTTP request to a URL that names one thing (the matches of tournament 2, one match, one tournament) and gets JSON back. It's REST-*style* rather than strict REST, because a few URLs like `/start` or `/advance-round` name an action, not a thing.
 
-[`static/app.js` lines 6–21](static/app.js#L6-L21): the one helper every page uses
+The client, in the browser:
 ```js
-async function api(url, method = 'GET', body = null) {
-  const opts = {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'same-origin'
-  };
-  if (body) opts.body = JSON.stringify(body);
-  try {
-    const res  = await fetch(url, opts);
-    const data = await res.json();
-    return data;
-  } catch (e) {
-    return { error: 'Network error' };
-  }
-}
+const res  = await fetch(url, opts);    // CLIENT: send the HTTP request, wait for the response
+const data = await res.json();          // the body is JSON -> turn it into a JS object
 ```
-
-The server side of the same contract, three routes from [`routes.py`](routes.py#L422) ([L422](routes.py#L422), [L446](routes.py#L446), [L728](routes.py#L728)):
+The server, in Flask:
 ```python
-@routes_bp.route('/api/tournament/<int:tid>/matches')                      # GET: read
-@routes_bp.route('/api/match/<int:match_id>/result', methods=['POST'])     # POST: act
-@routes_bp.route('/api/tournament/<int:tid>/delete', methods=['DELETE'])   # DELETE: remove
+@routes_bp.route('/api/tournament/<int:tid>/matches')   # a RESOURCE: the matches of one tournament. GET only
+def get_matches(tid):                                    # tid comes out of the URL, already an int
+    # ... login check and database query (see full code)
+        return jsonify([dict(r) for r in rows])          # rows -> list of dicts -> JSON body, status 200
 ```
+Full code: [`static/app.js` lines 6–21](static/app.js#L6-L21) · [`routes.py` lines 422–442](routes.py#L422-L442)
 
 > **[CHECK] Why I did it this way:** *In your words. For example, why the pages fetch JSON instead of rendering everything on the server, and what that made easier (live refresh, spectator view, same API for every page).*
 </details>
@@ -216,26 +209,15 @@ The server side of the same contract, three routes from [`routes.py`](routes.py#
 <summary><b>Stateless HTTP with a session cookie</b> · the server forgets you after every request</summary>
 <br>
 
-**In plain words.** HTTP has no memory: every request arrives on its own, and the server doesn't know who sent the previous one. So after a successful login, Flask puts the user's ID into a **session cookie**. The browser sends that cookie with every following request, and the server reads it again each time. The cookie is signed with `secret_key`, so nobody can change the ID in it and become someone else. Every protected route starts by checking it.
+**In plain words.** HTTP has no memory: every request arrives on its own. So at login Flask writes the user's ID into the **session**, which travels to the browser as a signed cookie. The browser sends it back with every request, and every protected route reads it again. The server keeps nothing in between.
 
-[`auth.py` lines 43–48](auth.py#L43-L48) (login), [`app.py` line 9](app.py#L9) (key), [`routes.py` lines 19–22](routes.py#L19-L22) (the check)
 ```python
-# auth.py: after the PIN is checked, remember the user in the signed cookie
-if not user or user['pin'] != pin:
-    return jsonify({'error': 'Wrong username or PIN'}), 401
-session['user_id'] = user['id']
-session['username'] = user['username']
-
-# app.py: the key that signs the cookie
-app.secret_key = os.environ.get('SECRET_KEY', secrets.token_hex(32))
-
-# routes.py: first line of every protected route
-def require_login():
-    if 'user_id' not in session:
-        return jsonify({'error': 'Not logged in'}), 401
+app.secret_key = os.environ.get('SECRET_KEY', secrets.token_hex(32))   # SIGNS the cookie so the client cannot forge it
+session['user_id'] = user['id']          # LOGIN: the id goes into the session -> the signed cookie
+if 'user_id' not in session:             # EVERY request: read the cookie again, nothing was remembered
+    return jsonify({'error': 'Not logged in'}), 401   # no cookie -> 401, not a silent 200
 ```
-
-Without a `SECRET_KEY` in the environment, a random key is generated at every start, so a restart logs everyone out. That's why the setup recommends setting one.
+Full code: [`app.py` line 9](app.py#L9) · [`auth.py` lines 34–50](auth.py#L34-L50) · [`routes.py` lines 19–22](routes.py#L19-L22)
 
 > **[CHECK] Why I did it this way:** *In your words. For example, why a signed cookie and not a server-side session table, and why a 4-digit PIN was enough for a game night.*
 </details>
@@ -244,20 +226,19 @@ Without a `SECRET_KEY` in the environment, a random key is generated at every st
 <summary><b>Explicit HTTP status codes</b> · every failure says what kind of failure it is</summary>
 <br>
 
-**In plain words.** A request can fail for very different reasons, and the status code tells the client which one it is without reading the text: **400** your input is wrong, **401** you're not logged in, **403** you're logged in but it's not your match, **404** that match doesn't exist, **409** the request clashes with the current state (already validated, or you already submitted and are waiting for your opponent). Flask would answer **200** for all of them if the code didn't set it.
+**In plain words.** The status code lets the client react without reading the error text. Submitting a score checks four things in order, and each "no" has its own code. Without the explicit number, Flask would answer 200 and the error would look like a success.
 
-[`routes.py` lines 452–476](routes.py#L452-L476): submitting a score
 ```python
+# 1. are both scores there?          no -> 400: the request itself is incomplete
 if hs is None or as_ is None: return jsonify({'error': 'Both scores required'}), 400
-if hs < 0 or as_ < 0: return jsonify({'error': 'Scores cannot be negative'}), 400
-match = db.execute('SELECT * FROM matches WHERE id=?', (match_id,)).fetchone()
+# 2. does the match exist?           no -> 404: request fine, the thing is not there
 if not match: return jsonify({'error': 'Match not found'}), 404
-# ...
+# 3. are you in this tournament?     no -> 403: you are known, but not allowed
 if not my_part: return jsonify({'error': 'Not in this tournament'}), 403
+# 4. does it fit the current state?  no -> 409: the result is already official
 if match['home_score'] is not None: return jsonify({'error': 'Result already validated'}), 409
-if match['pending_by'] == session['username']:
-    return jsonify({'error': 'You already submitted — waiting for opponent to validate'}), 409
 ```
+Full code: [`routes.py` lines 446–481](routes.py#L446-L481)
 
 > **[CHECK] Why I did it this way:** *In your words. For example, what the frontend does differently with a 409 than with a 403.*
 </details>
@@ -266,17 +247,18 @@ if match['pending_by'] == session['username']:
 <summary><b>Idempotency</b> · joining twice is the same as joining once</summary>
 <br>
 
-**In plain words.** An operation is *idempotent* if doing it twice leaves the server in the same state as doing it once. `POST` isn't idempotent by definition, but joining a tournament is made idempotent on purpose: if you're already in, the server answers `ok` and changes nothing. A double tap on a phone, or opening the invite link again, does no harm. Submitting a score is the deliberate opposite. A second submission is refused with 409, because a result must not quietly change.
+**In plain words.** A request is *idempotent* if sending it twice leaves the server in the same state as sending it once. `POST` normally isn't, but joining a tournament is built that way: the second time, the server finds you already in and changes nothing. A double tap on a phone does no harm.
 
-[`routes.py` lines 130–140](routes.py#L130-L140)
 ```python
-@routes_bp.route('/api/tournament/<int:tid>/join', methods=['POST'])
-def join_tournament(tid):
-    # ... login check, tournament exists, still in setup ...
-    already = db.execute('SELECT id FROM participants WHERE tournament_id=? AND user_id=?',
-                         (tid, session['user_id'])).fetchone()
-    if already: return jsonify({'ok': True, 'message': 'Already joined'})
+# look up: is this user already in this tournament?   (None = not yet)
+already = db.execute('SELECT id FROM participants WHERE tournament_id=? AND user_id=?', (tid, session['user_id'])).fetchone()
+# yes -> answer ok and change NOTHING: the 2nd request ends here
+if already: return jsonify({'ok': True, 'message': 'Already joined'})
+# ... (is the tournament full? see full code)
+# only the FIRST request gets here and writes the row
+db.execute('INSERT INTO participants (tournament_id, user_id) VALUES (?,?)', (tid, session['user_id']))
 ```
+Full code: [`routes.py` lines 130–149](routes.py#L130-L149)
 
 > **[CHECK] Why I did it this way:** *In your words. For example, what went wrong (or could have) when people opened the invite link twice.*
 </details>
@@ -313,11 +295,36 @@ The database (`tournament.db`) is created on first start. **Demo data:** `seed_d
 ADMIN_USERNAME=alex SECRET_KEY=change-me python app.py          # PowerShell: $env:ADMIN_USERNAME="alex"; python app.py
 ```
 
-**Deploying:** the `Procfile` runs `gunicorn app:app` (used on Railway). gunicorn doesn't run on Windows, so use `python app.py` there.
-
-> Logins use a name and a 4-digit PIN, made for a group of friends on one evening. PINs are stored in plain text, so don't run this as a public service with real accounts.
+> Logins use a name and a 4-digit PIN, made for a group of friends on one evening. Read [Known limitations](#known-limitations) before putting it on the internet.
 
 **Team data:** `data/teams.json` ships with the repo. To rebuild it from the Kaggle FC 26 player dataset: `python scripts/build_teams_json.py --csv players.csv`.
+
+<a name="deployment"></a>
+## Deployment
+
+The app runs on **Railway**. Railway builds the repository into a container image and runs it. The repo carries only three small files for that:
+
+| File | What Railway takes from it |
+|---|---|
+| `requirements.txt` | That this is a Python app, and which packages to install (Flask, gunicorn) |
+| `.python-version` | Python **3.11** |
+| `Procfile` | The start command: `web: gunicorn app:app` |
+
+gunicorn is the production server that replaces Flask's development server. It loads `app` from `app.py`. Because Railway sets a `PORT` variable, gunicorn listens on `0.0.0.0:$PORT`, so the platform can reach it from outside the container. (gunicorn doesn't run on Windows; locally, use `python app.py`.)
+
+**The database lives on a volume.** A container's own files are thrown away on every redeploy, and the SQLite file with them. A Railway volume is storage that is mounted into the container and survives redeploys. `DB_PATH` has to point to a file inside the volume's mount path (for a volume mounted at `/data`: `/data/tournament.db`); otherwise every deploy starts with an empty database.
+
+**Variables to set in Railway** (in the Railway project, not in this repo):
+
+| Variable | Why |
+|---|---|
+| `DB_PATH` | Puts the SQLite file on the volume (see above) |
+| `SECRET_KEY` | Keeps everyone logged in across restarts and redeploys |
+| `ADMIN_USERNAME` | Must match the existing admin account. The default is `admin`, and whoever registers the admin name first gets the admin rights |
+
+It runs as **one** instance: a SQLite file on a volume belongs to one container, so this setup can't be scaled out to several replicas.
+
+> **[CHECK]** *Confirm against your Railway project: the volume's mount path, and that `DB_PATH`, `SECRET_KEY` and `ADMIN_USERNAME` are set. These settings live in the Railway dashboard, so they could not be read from the repo.*
 
 <a name="project-structure"></a>
 ## Project structure
@@ -343,14 +350,20 @@ tournament-app/
 
 ## How I built it
 
-> **[CHECK]** *Draft, to be rewritten in your own words.* I built this app over two nights in June 2026 with **Claude** (Anthropic) as my coding assistant. *[Say honestly how the work was split: what you decided (features, how it should feel on the night, what to fix next), what Claude wrote, what you changed or tested yourself, and what you learned doing it this way.]*
+> **[CHECK]** *Draft, rewrite in your own words:* BVS2 gave me the idea that this was possible: one server that several people use at the same time from their phones. From my databases course I knew how to design the tables and query them from Python. I used Claude as a coding assistant to turn the idea into a working app fast, so we could use it for our tournament.
 
-## What I'd build next
+<a name="known-limitations"></a>
+## Known limitations
 
-> **[CHECK]** *Your list. One item came up while reviewing the code:*
->
-> - **Make round advancement race-free.** When the last result of a knockout round is confirmed, the server first checks "are all results in?" and only then creates the next round, as two separate steps. If two confirmations arrived at the same moment, both could pass the check and create the round twice. Today's single gunicorn worker handles one request at a time, so it can't happen yet. Running more workers would open the door, and doing the check and the insert in one transaction would close it.
-> - *…*
+This is a game-night app for a group of friends, and it has the limits of one:
+
+- **Two confirmations at the same moment could advance a knockout round twice.** When the last result of a round is confirmed, the server first checks "are all results in?" and then creates the next round, as two separate steps. If two confirmations arrived at exactly the same time, both could pass the check and create the round twice. With the default single gunicorn worker, requests are handled one after another, so this does not happen in the current setup.
+- **Usernames are not escaped in the pages.** A username that contains HTML is rendered as HTML for everyone who sees it in a table or bracket. Only let people you know register.
+- **Logins are weak on purpose.** A 4-digit PIN, stored in plain text, with no limit on wrong attempts.
+- **Some bad input returns 500 instead of 400.** For example, a non-numeric player count when creating a tournament.
+- **One database file, one server.** Everything is one SQLite file with no built-in backup, and the app can't run as several instances at once.
+- **Knockout Matches page on narrow screens.** Below about 900px width, the bracket on the Matches page of a knockout cup starts partly off-screen. The Table page is not affected.
+- **No automated tests.** Everything was tested by hand and by playing.
 
 ## License
 
