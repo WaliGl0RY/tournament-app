@@ -302,29 +302,11 @@ ADMIN_USERNAME=alex SECRET_KEY=change-me python app.py          # PowerShell: $e
 <a name="deployment"></a>
 ## Deployment
 
-The app runs on **Railway**. Railway builds the repository into a container image and runs it. The repo carries only three small files for that:
+The app ran on **Railway**. Railway built the repository into a container image and ran it as a container. Three small files in the repo were all it needed: `requirements.txt` (Flask and gunicorn), `.python-version` (Python 3.11) and the `Procfile`, whose start command `gunicorn app:app` ran the app with gunicorn instead of Flask's development server.
 
-| File | What Railway takes from it |
-|---|---|
-| `requirements.txt` | That this is a Python app, and which packages to install (Flask, gunicorn) |
-| `.python-version` | Python **3.11** |
-| `Procfile` | The start command: `web: gunicorn app:app` |
+**The database lived on a volume.** A container's own files are thrown away on every redeploy, and a SQLite file stored there would have gone with them. A Railway volume was mounted into the container instead, with `DB_PATH` pointing to the database file inside it, so the data survived every redeploy.
 
-gunicorn is the production server that replaces Flask's development server. It loads `app` from `app.py`. Because Railway sets a `PORT` variable, gunicorn listens on `0.0.0.0:$PORT`, so the platform can reach it from outside the container. (gunicorn doesn't run on Windows; locally, use `python app.py`.)
-
-**The database lives on a volume.** A container's own files are thrown away on every redeploy, and the SQLite file with them. A Railway volume is storage that is mounted into the container and survives redeploys. `DB_PATH` has to point to a file inside the volume's mount path (for a volume mounted at `/data`: `/data/tournament.db`); otherwise every deploy starts with an empty database.
-
-**Variables to set in Railway** (in the Railway project, not in this repo):
-
-| Variable | Why |
-|---|---|
-| `DB_PATH` | Puts the SQLite file on the volume (see above) |
-| `SECRET_KEY` | Keeps everyone logged in across restarts and redeploys |
-| `ADMIN_USERNAME` | Must match the existing admin account. The default is `admin`, and whoever registers the admin name first gets the admin rights |
-
-It runs as **one** instance: a SQLite file on a volume belongs to one container, so this setup can't be scaled out to several replicas.
-
-> **[CHECK]** *Confirm against your Railway project: the volume's mount path, and that `DB_PATH`, `SECRET_KEY` and `ADMIN_USERNAME` are set. These settings live in the Railway dashboard, so they could not be read from the repo.*
+This setup was one instance by design: one container, one SQLite file on one volume. The app is offline now.
 
 <a name="project-structure"></a>
 ## Project structure
