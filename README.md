@@ -15,26 +15,75 @@
 </p>
 
 <p align="center">
-  <a href="#features"><img src="docs/badges/nav-features.svg" alt="Features"></a>
-  <a href="#how-it-works"><img src="docs/badges/nav-flow.svg" alt="How it works"></a>
-  <a href="#how-it-grew"><img src="docs/badges/nav-grew.svg" alt="How it grew"></a>
-  <a href="#concepts-in-practice"><img src="docs/badges/nav-concepts.svg" alt="Concepts"></a>
-  <a href="#quick-start"><img src="docs/badges/nav-quickstart.svg" alt="Quick start"></a>
-  <a href="#deployment"><img src="docs/badges/nav-deploy.svg" alt="Deployment"></a>
-  <a href="#project-structure"><img src="docs/badges/nav-structure.svg" alt="Structure"></a>
+  <a href="#story"><img src="docs/badges/zone-story.svg" alt="The story"></a>
+  <a href="#features"><img src="docs/badges/zone-features.svg" alt="Features"></a>
+  <a href="#learned"><img src="docs/badges/zone-learned.svg" alt="What I learned in practice"></a>
+  <a href="#run"><img src="docs/badges/zone-run.svg" alt="Run it yourself"></a>
+  <a href="#notes"><img src="docs/badges/zone-notes.svg" alt="Honest notes"></a>
 </p>
 
 <p align="center">
   <img src="docs/demo.gif" alt="Demo: log in, league table, opponent validates a score, table updates, knockout bracket, champion celebration" width="820">
 </p>
 
+---
+
+<a name="story"></a>
+<p><img src="docs/zones/story.svg" alt="The story" width="100%"></p>
+
 ## Why I built it
 
-> **[CHECK]** *Draft, rewrite in your own words:* My friends and I play FC26 together, and we wanted a real tournament: a league table, knockout rounds, and results everyone agrees on. I had just learned in BVS2 how clients and servers talk to each other, and I realised that was enough to build it myself.
+My friends and I had an FC26 tournament going, and one person had to organise everything and keep answering everyone about the standings. At the same time, I was learning RPC and client-server in BVS2. I looked for a platform that does this, but found nothing that fit, or it cost money. So I built it myself.
 
-## Features
+## How I built it
 
-The app is built around the actual game night: someone sets up a tournament, everybody plays on one console, and nobody wants to argue about scores afterwards. **Pick one to see it:**
+> **[CHECK]** *Draft, rewrite in your own words:* BVS2 gave me the idea that this was possible: one server that several people use at the same time from their phones. From my databases course I knew how to design the tables and query them from Python. I used Claude as a coding assistant to turn the idea into a working app fast, so we could use it for our tournament.
+
+<a name="how-it-grew"></a>
+## How it grew
+
+<table>
+  <tr>
+    <td width="50%" valign="top"><b>1 · Foundation</b><br><sub>11.06.2026 · 5 commits</sub><br>The whole app in one go: accounts, tournaments with invite links, league and knockout fixtures, team assignment and the live table. Then Railway deploy prep, removing players and assigning teams by hand.<br><i>“The standings had to be visible to everyone, all the time, so nobody had to ask one person anymore.”</i></td>
+    <td width="50%" valign="top"><b>2 · Fair play</b><br><sub>11.06.2026 · 1 commit</sub><br>A submitted score stays pending until the opponent validates or rejects it.<br><i>“Between friends, someone always tries a joke: a wrong score, or 1000 goals. So a result only counts once the opponent confirms it.”</i></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><b>3 · Finding your way</b><br><sub>11.06 – 12.06.2026 · 8 commits</sub><br>The full bracket with future rounds as TBD, then leg and matchday filters that open on your next match.<br><i>“Nobody should have to dig through everyone else's matches to find their own. Your next match comes first, and the rest stays organised.”</i></td>
+    <td width="50%" valign="top"><b>4 · For everyone watching</b><br><sub>11.06.2026 · 5 commits</sub><br>A spectator view of the live table and bracket, even without an invite link, and banners for players and for people waiting.<br><i>“Some friends weren't playing this time but still wanted to follow the tournament while waiting for the next one. So they got their own view.”</i></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><b>5 · The big moment</b><br><sub>11.06.2026 · 4 commits</sub><br>A full-screen champion celebration with trophy and confetti, and the Squad Sheet next to the bracket.<br><i>“The winner should feel special. After a whole tournament, the end deserves more than a line in a table.”</i></td>
+    <td width="50%" valign="top"><b>6 · In your pocket</b><br><sub>11.06.2026 · 3 commits</sub><br>A mobile-only layout: compact navigation, sideways-scrolling brackets, no page overflow.<br><i>“Most players were on consoles, so the phone was the easiest way to follow the tournament and enter results.”</i></td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><b>7 · Running the real night</b><br><sub>12.06.2026 · 6 commits</sub><br>A supervisor role, one queue of scores to validate, walkover for missing results, renaming and team reassignment.<br><i>“I couldn't always be there as the admin. If someone rage-quit or a score needed fixing, someone had to step in. So whoever creates a tournament becomes its supervisor, and can give that role to people they trust.”</i></td>
+    <td width="50%" valign="top"><b>8 · Ready to show</b><br><sub>September 2026 · 11 commits</sub><br>Demo data with invented players, a configurable admin, the single-leg bracket fix, and this README.</td>
+  </tr>
+</table>
+
+---
+
+<a name="features"></a>
+<p><img src="docs/zones/features.svg" alt="Features" width="100%"></p>
+
+Built around the actual game night: someone sets up a tournament, everybody plays, and nobody wants to argue about scores afterwards.
+
+<table>
+  <tr>
+    <td width="33%" align="center" valign="top"><img src="docs/screenshots/grid/teams.png" alt="Fair team assignment"><br><b>Fair team assignment</b><br><sub>the strongest matching FC 26 teams, one per player</sub></td>
+    <td width="33%" align="center" valign="top"><img src="docs/screenshots/grid/validation.png" alt="Score validation"><br><b>Score validation</b><br><sub>a result counts once the opponent confirms it</sub></td>
+    <td width="33%" align="center" valign="top"><img src="docs/screenshots/grid/bracket.png" alt="Live bracket"><br><b>Live bracket</b><br><sub>every round up to the champion, future rounds as TBD</sub></td>
+  </tr>
+  <tr>
+    <td width="33%" align="center" valign="top"><img src="docs/screenshots/grid/next_match.png" alt="Your next match first"><br><b>Your next match first</b><br><sub>leg and matchday filters instead of one long list</sub></td>
+    <td width="33%" align="center" valign="top"><img src="docs/screenshots/grid/spectator.png" alt="Spectator mode"><br><b>Spectator mode</b><br><sub>follow the tournament without playing in it</sub></td>
+    <td width="33%" align="center" valign="top"><img src="docs/screenshots/grid/champion.png" alt="Champion celebration"><br><b>Champion celebration</b><br><sub>trophy and confetti when the final is decided</sub></td>
+  </tr>
+</table>
+
+**Also in the app:** knockout rounds that advance by themselves · banners for players and for people waiting · works on a phone · invite links · league or knockout, 1 or 2 legs · supervisors, rename, walkover · activity log of every action.
+
+### More about each feature
 
 <details>
 <summary><b>Fair team assignment</b> · the strongest matching FC 26 teams, one per player</summary>
@@ -111,74 +160,12 @@ Next to the bracket, the Squad Sheet lists every player with their team and star
 On a phone the navigation wraps into a scrollable row, long names are cut off cleanly, and the bracket on the Table page scrolls sideways. All of this sits in one `@media` block, so the desktop layout is untouched.
 </details>
 
-**Also in the app:** invite links · two formats (league or knockout, 1 or 2 legs) · supervisor role, rename, walkover, delete · activity log of every action.
-
 <sub>All names in screenshots and the demo are invented (`seed_demo.py`). Team names come from the FC 26 player dataset.</sub>
 
-<a name="how-it-works"></a>
-## How it works
+---
 
-**A tournament, start to finish**
-
-```mermaid
-flowchart TD
-  A["Create tournament<br/>name · format · legs"] --> B["Share invite link"]
-  B --> C["Players join"]
-  C --> D["Assign teams<br/>auto or manual"]
-  D --> E{"Format"}
-  E -->|League| F["Round-robin fixtures"]
-  E -->|Knockout| G["Pairs<br/>1st vs last, 2nd vs second-last"]
-  F --> H["Player submits score"]
-  G --> H
-  H --> I{"Opponent"}
-  I -->|rejects| H
-  I -->|validates| J["Result is official"]
-  J -->|league| K["Table updates"]
-  J -->|last tie of a round| L["Next round created"]
-  L --> H
-  J -->|final confirmed| M["Champion"]
-```
-
-**The architecture**
-
-```mermaid
-flowchart LR
-  subgraph Browser
-    P["HTML pages<br/>(Jinja2 templates)"] --- JS["app.js<br/>fetch() helper"]
-  end
-  subgraph Server["Flask app"]
-    AU["auth.py<br/>login · session"]
-    RT["routes.py<br/>pages + JSON API"]
-    TO["tournament.py<br/>fixtures · standings · winners"]
-    TE["teams.py<br/>filters · auto-assign"]
-    AC["activity.py<br/>event log"]
-  end
-  DB[("SQLite<br/>tournament.db")]
-  TJ[("data/teams.json<br/>136 teams")]
-  JS -->|"JSON over HTTP + session cookie"| AU
-  JS -->|"JSON over HTTP + session cookie"| RT
-  RT --> TO
-  RT --> TE
-  RT --> AC
-  AU --> DB
-  RT --> DB
-  AC --> DB
-  TE --> TJ
-```
-
-<a name="how-it-grew"></a>
-## How it grew
-
-| When | Commits | What happened |
-|---|---|---|
-| **11.06.2026**, 01:11–01:22 | 3 | The whole app lands in one commit (about 3,500 lines), then deploy prep for Railway |
-| 11.06, 01:54–02:45 | 3 | Remove player, **score validation**, manual team assignment |
-| 11.06, 04:03–05:30 | 17 | The presentation push: bracket with TBD rounds, spectator mode, banners, Squad Sheet, champion celebration, then the mobile layout |
-| **12.06.2026**, 21:58–22:47 | 9 | Tools for running it live: supervisors, walkover, team reassignment, rename, leg and matchday filters, validation queue |
-| **29.09.2026** | 7 | Cleanup: configurable admin, single-leg bracket fix, demo data, this README |
-
-<a name="concepts-in-practice"></a>
-## Concepts in practice
+<a name="learned"></a>
+<p><img src="docs/zones/learned.svg" alt="What I learned in practice" width="100%"></p>
 
 Where topics from the module *Betriebssysteme und Verteilte Systeme 2* (TH Köln) show up in this code. Each excerpt is the smallest piece that shows the idea, with one comment per line; the link under it leads to the full code.
 
@@ -263,26 +250,63 @@ Full code: [`routes.py` lines 130–149](routes.py#L130-L149)
 > **[CHECK] Why I did it this way:** *In your words. For example, what went wrong (or could have) when people opened the invite link twice.*
 </details>
 
-<a name="quick-start"></a>
-## Quick start
+<details>
+<summary><b>Architecture</b> · how the browser, Flask and SQLite fit together</summary>
+<br>
 
-**Windows, one click:** double-click **`run_local.bat`**. It creates a virtual environment, installs `requirements.txt`, starts the server and opens http://127.0.0.1:5000.
+```mermaid
+flowchart LR
+  subgraph Browser
+    P["HTML pages<br/>(Jinja2 templates)"] --- JS["app.js<br/>fetch() helper"]
+  end
+  subgraph Server["Flask app"]
+    AU["auth.py<br/>login · session"]
+    RT["routes.py<br/>pages + JSON API"]
+    TO["tournament.py<br/>fixtures · standings · winners"]
+    TE["teams.py<br/>filters · auto-assign"]
+    AC["activity.py<br/>event log"]
+  end
+  DB[("SQLite<br/>tournament.db")]
+  TJ[("data/teams.json<br/>136 teams")]
+  JS -->|"JSON over HTTP + session cookie"| AU
+  JS -->|"JSON over HTTP + session cookie"| RT
+  RT --> TO
+  RT --> TE
+  RT --> AC
+  AU --> DB
+  RT --> DB
+  AC --> DB
+  TE --> TJ
+```
+</details>
 
-**Any OS, by hand** (Python 3.11 or newer):
+---
+
+<a name="run"></a>
+<p><img src="docs/zones/run.svg" alt="Run it yourself" width="100%"></p>
+
+With Python 3.11 or newer (on Windows, double-clicking **`run_local.bat`** does all of this for you):
 
 ```bash
-git clone https://github.com/wragoub-design/tournament-app.git
-cd tournament-app
-python -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
+git clone https://github.com/wragoub-design/tournament-app.git && cd tournament-app
 pip install -r requirements.txt
-python seed_demo.py                # optional: demo players and tournaments
-python app.py                      # → http://127.0.0.1:5000
+python app.py
 ```
 
-The database (`tournament.db`) is created on first start. **Demo data:** `seed_demo.py` adds eight invented players (`nova`, `blaze`, `pixel` …) and an `admin` account, all with PIN **`0000`**, plus three tournaments: a league with one score waiting for validation, a knockout cup before its final, and a finished cup. Log in as `nova` to land on the live cup. The script also prints one invite link per tournament: log out, open a link, log in, and that tournament is selected. It refuses to touch a database that already has users.
+Then open http://127.0.0.1:5000. The database (`tournament.db`) is created on first start.
 
-**Configuration** (all optional, as environment variables):
+<details>
+<summary><b>Demo data</b> · invented players and three tournaments to click through</summary>
+<br>
+
+Run `python seed_demo.py` once, before `python app.py`.
+
+`seed_demo.py` adds eight invented players (`nova`, `blaze`, `pixel` …) and an `admin` account, all with PIN **`0000`**, plus three tournaments: a league with one score waiting for validation, a knockout cup before its final, and a finished cup. Log in as `nova` to land on the live cup. The script also prints one invite link per tournament: log out, open a link, log in, and that tournament is selected. It refuses to touch a database that already has users.
+</details>
+
+<details>
+<summary><b>Settings</b> · environment variables, all optional</summary>
+<br>
 
 | Variable | Default | What it does |
 |---|---|---|
@@ -298,18 +322,22 @@ ADMIN_USERNAME=alex SECRET_KEY=change-me python app.py          # PowerShell: $e
 > Logins use a name and a 4-digit PIN, made for a group of friends on one evening. See [Security scope](#security-scope).
 
 **Team data:** `data/teams.json` ships with the repo. To rebuild it from the Kaggle FC 26 player dataset: `python scripts/build_teams_json.py --csv players.csv`.
+</details>
 
-<a name="deployment"></a>
-## Deployment
+<details>
+<summary><b>Deployment</b> · how it ran on Railway</summary>
+<br>
 
 The app ran on **Railway**. Railway built the repository into a container image and ran it as a container. Three small files in the repo were all it needed: `requirements.txt` (Flask and gunicorn), `.python-version` (Python 3.11) and the `Procfile`, whose start command `gunicorn app:app` ran the app with gunicorn instead of Flask's development server.
 
 **The database lived on a volume.** A container's own files are thrown away on every redeploy, and a SQLite file stored there would have gone with them. A Railway volume was mounted into the container instead, with `DB_PATH` pointing to the database file inside it, so the data survived every redeploy.
 
 This setup was one instance by design: one container, one SQLite file on one volume. The app is offline now.
+</details>
 
-<a name="project-structure"></a>
-## Project structure
+<details>
+<summary><b>Project structure</b> · where everything lives</summary>
+<br>
 
 ```
 tournament-app/
@@ -329,10 +357,12 @@ tournament-app/
 ├── run_local.bat       ← Windows one-click start
 └── Procfile            ← gunicorn app:app
 ```
+</details>
 
-## How I built it
+---
 
-> **[CHECK]** *Draft, rewrite in your own words:* BVS2 gave me the idea that this was possible: one server that several people use at the same time from their phones. From my databases course I knew how to design the tables and query them from Python. I used Claude as a coding assistant to turn the idea into a working app fast, so we could use it for our tournament.
+<a name="notes"></a>
+<p><img src="docs/zones/notes.svg" alt="Honest notes" width="100%"></p>
 
 <a name="security-scope"></a>
 ## Security scope
@@ -342,15 +372,13 @@ tournament-app/
 <a name="known-limitations"></a>
 ## Known limitations
 
-This is a game-night app for a group of friends, and it has the limits of one:
-
-- **Two confirmations at the same moment could advance a knockout round twice.** When the last result of a round is confirmed, the server first checks "are all results in?" and then creates the next round, as two separate steps. If two confirmations arrived at exactly the same time, both could pass the check and create the round twice. With the default single gunicorn worker, requests are handled one after another, so this does not happen in the current setup.
+- **Race on round advance:** two confirmations at the same moment could create the next knockout round twice (not with the single worker it ran on).
 - **User input isn't escaped** when the pages display it.
 - **Logins are simple on purpose:** 4-digit PINs, stored in plain text, with no attempt limit.
-- **Some bad input returns 500 instead of 400.** For example, a non-numeric player count when creating a tournament.
-- **One database file, one server.** Everything is one SQLite file with no built-in backup, and the app can't run as several instances at once.
-- **Knockout Matches page on narrow screens.** Below about 900px width, the bracket on the Matches page of a knockout cup starts partly off-screen. The Table page is not affected.
-- **No automated tests.** Everything was tested by hand and by playing.
+- **Some bad input returns 500** instead of 400.
+- **One SQLite file, one server:** no built-in backup, no running several instances.
+- **Knockout Matches page on narrow screens** starts partly off-screen below about 900px.
+- **No automated tests:** everything was tested by hand and by playing.
 
 ## License
 
