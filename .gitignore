@@ -1,8 +1,30 @@
+# Python
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
+.venv/
+venv/
+env/
+
+# Local data — never commit real players or results
 *.db
-.env
+*.db-journal
+*.db.backup
 *.sqlite
+*.sqlite3
+*.backup
 users_seed.json
+
+# Secrets / config
+.env
+.env.*
+
+# Editors & tools
 .claude/
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
