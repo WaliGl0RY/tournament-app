@@ -103,13 +103,16 @@ def seed():
         f"/api/match/{pending['id']}/result", json={'home_score': 3, 'away_score': 2}))
 
     # ── Supercup: 8 players, two-leg knockout, final still to play ──
-    cid = knockout(clients, 'Supercup Showdown', PLAYERS, rounds_to_play=2)
+    cid, cup_code = knockout(clients, 'Supercup Showdown', PLAYERS, rounds_to_play=2)
 
     # ── Finished cup: 4 players, champion crowned ──
-    wid = knockout(clients, 'Winter Cup', PLAYERS[4:], rounds_to_play=2)
+    wid, win_code = knockout(clients, 'Winter Cup', PLAYERS[4:], rounds_to_play=2)
 
-    print(f'Seeded {DB_PATH}: {len(PLAYERS)} players + "{LOG_ADMIN}", '
-          f'league #{tid}, supercup #{cid}, finished cup #{wid}. PIN for every account: {PIN}')
+    print(f'Seeded {DB_PATH}: {len(PLAYERS)} players + "{LOG_ADMIN}". PIN for every account: {PIN}')
+    print('Open a link (logged out), log in, and that tournament is selected:')
+    for name, code in [('Friday Night League', league['invite_code']),
+                       ('Supercup Showdown  ', cup_code), ('Winter Cup         ', win_code)]:
+        print(f'  {name}  http://127.0.0.1:5000/join/{code}')
 
 
 def knockout(clients, name, players, rounds_to_play):
@@ -126,7 +129,7 @@ def knockout(clients, name, players, rounds_to_play):
     for _ in range(rounds_to_play):
         for m in [m for m in matches(clients, tid) if m['home_score'] is None]:
             play(clients, tid, m, draw_ok=False)
-    return tid
+    return tid, t['invite_code']
 
 
 if __name__ == '__main__':
