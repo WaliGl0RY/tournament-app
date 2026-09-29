@@ -1,3 +1,4 @@
+import os
 import secrets
 from flask import Blueprint, request, jsonify, session, render_template
 from database import get_db
@@ -7,14 +8,20 @@ from teams import assign_teams_to_players, filter_teams, get_leagues
 from activity import log_event
 
 routes_bp = Blueprint('routes', __name__)
-LOG_ADMIN = 'walid'
+# Super-admin (logs, supervisors, overrides) — set via env var, e.g. ADMIN_USERNAME=alex
+LOG_ADMIN = os.environ.get('ADMIN_USERNAME', 'admin').strip().lower()
+
+
+@routes_bp.app_context_processor
+def inject_admin_username():
+    return {'admin_username': LOG_ADMIN}
 
 def require_login():
     if 'user_id' not in session:
         return jsonify({'error': 'Not logged in'}), 401
     return None
 
-def is_walid():
+def is_super_admin():
     return session.get('username', '').lower() == LOG_ADMIN
 
 def is_supervisor():
@@ -327,7 +334,7 @@ def start_tournament(tid):
 def advance_round(tid):
     err = require_login()
     if err: return err
-    if not is_walid(): return jsonify({'error': 'Admin only'}), 403
+    if not is_super_admin(): return jsonify({'error': 'Admin only'}), 403
     db = get_db()
     try:
         t = db.execute('SELECT * FROM tournaments WHERE id=?', (tid,)).fetchone()
@@ -450,13 +457,13 @@ def submit_result(match_id):
         match = db.execute('SELECT * FROM matches WHERE id=?', (match_id,)).fetchone()
         if not match: return jsonify({'error': 'Match not found'}), 404
         my_part = db.execute('SELECT * FROM participants WHERE tournament_id=? AND user_id=?', (match['tournament_id'], session['user_id'])).fetchone()
-        if is_walid() or is_supervisor():
+        if is_super_admin() or is_supervisor():
             # Admin/supervisor bypasses validation — direct override
             hp = db.execute('SELECT u.username, p.team_name FROM participants p JOIN users u ON p.user_id=u.id WHERE p.id=?', (match['home_participant_id'],)).fetchone()
             ap = db.execute('SELECT u.username, p.team_name FROM participants p JOIN users u ON p.user_id=u.id WHERE p.id=?', (match['away_participant_id'],)).fetchone()
             db.execute('UPDATE matches SET home_score=?, away_score=?, submitted_at=CURRENT_TIMESTAMP, pending_home_score=NULL, pending_away_score=NULL, pending_by=NULL WHERE id=?', (hs, as_, match_id))
             detail = f'{hp["username"]} ({hp["team_name"]}) {hs}–{as_} {ap["username"]} ({ap["team_name"]})'
-            ev = 'result_overridden' if is_walid() else 'result_entered_by_supervisor'
+            ev = 'result_overridden' if is_super_admin() else 'result_entered_by_supervisor'
             log_event(db, ev, match['tournament_id'], session['username'], detail)
             db.commit()
         else:
@@ -537,7 +544,7 @@ def validate_result(match_id):
         match = db.execute('SELECT * FROM matches WHERE id=?', (match_id,)).fetchone()
         if not match: return jsonify({'error': 'Match not found'}), 404
         if match['pending_by'] is None: return jsonify({'error': 'No pending score to validate'}), 409
-        privileged = is_walid() or is_supervisor()
+        privileged = is_super_admin() or is_supervisor()
         if match['pending_by'] == session['username'] and not privileged:
             return jsonify({'error': 'You submitted this score — your opponent must validate'}), 403
         my_part = db.execute('SELECT * FROM participants WHERE tournament_id=? AND user_id=?', (match['tournament_id'], session['user_id'])).fetchone()
@@ -616,7 +623,7 @@ def validate_result(match_id):
 def get_users():
     err = require_login()
     if err: return err
-    if not is_walid(): return jsonify({'error': 'Access denied'}), 403
+    if not is_super_admin(): return jsonify({'error': 'Access denied'}), 403
     db = get_db()
     try:
         rows = db.execute('SELECT id, username, pin, is_admin, is_supervisor FROM users ORDER BY username').fetchall()
@@ -629,7 +636,7 @@ def get_users():
 def get_logs():
     err = require_login()
     if err: return err
-    if not is_walid(): return jsonify({'error': 'Access denied'}), 403
+    if not is_super_admin(): return jsonify({'error': 'Access denied'}), 403
     db = get_db()
     try:
         rows = db.execute('SELECT * FROM activity_log ORDER BY timestamp DESC LIMIT 500').fetchall()
@@ -642,7 +649,7 @@ def get_logs():
 def clear_logs():
     err = require_login()
     if err: return err
-    if not is_walid(): return jsonify({'error': 'Access denied'}), 403
+    if not is_super_admin(): return jsonify({'error': 'Access denied'}), 403
     db = get_db()
     try:
         db.execute('DELETE FROM activity_log')
@@ -673,7 +680,7 @@ def list_leagues():
 def set_supervisor(uid):
     err = require_login()
     if err: return err
-    if not is_walid(): return jsonify({'error': 'Admin only'}), 403
+    if not is_super_admin(): return jsonify({'error': 'Admin only'}), 403
     data = request.get_json() or {}
     val = 1 if data.get('supervisor') else 0
     db = get_db()
@@ -694,7 +701,7 @@ def set_supervisor(uid):
 def update_tournament(tid):
     err = require_login()
     if err: return err
-    if not is_walid(): return jsonify({'error': 'Admin only'}), 403
+    if not is_super_admin(): return jsonify({'error': 'Admin only'}), 403
     data = request.get_json() or {}
     db = get_db()
     try:

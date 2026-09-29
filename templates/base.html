@@ -35,9 +35,9 @@
       const username = (localStorage.getItem('username') || '').toLowerCase();
       const m = document.getElementById('nav-manage');
       const l = document.getElementById('nav-logs');
-      if (username === 'walid') {
+      if (username === {{ admin_username|tojson }}) {
         if (m) m.style.display = '';
-        if (l) l.style.display = '';      // Logs stay walid-only
+        if (l) l.style.display = '';      // Logs stay super-admin only
       } else if (localStorage.getItem('is_supervisor') == '1') {
         if (m) m.style.display = '';      // supervisors get Manage, not Logs
       }
@@ -45,7 +45,7 @@
       fetch('/api/me').then(function(r){ return r.ok ? r.json() : null; }).then(function(me){
         if (!me) return;
         localStorage.setItem('is_supervisor', me.is_supervisor ? 1 : 0);
-        if ((me.is_supervisor || username === 'walid') && m) m.style.display = '';
+        if ((me.is_supervisor || username === {{ admin_username|tojson }}) && m) m.style.display = '';
       }).catch(function(){});
     })();
   </script>

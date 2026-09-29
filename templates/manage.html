@@ -80,7 +80,7 @@
 </div>
 
 
-<!-- Supervisor management (walid only) -->
+<!-- Supervisor management (super-admin only) -->
 <div class="card" id="supervisor-panel" style="margin-top:1rem;display:none">
   <div class="step-header" style="margin-bottom:1rem">
     <span class="step-title">👮 Supervisors</span>
@@ -140,10 +140,10 @@
 <script>
   let tid = localStorage.getItem('tournament_id');
   let allMatches = [], editMatchId = null, tInfo = null;
-  const isWalid = (localStorage.getItem('username') || '').toLowerCase() === 'walid';
+  const isSuperAdmin = (localStorage.getItem('username') || '').toLowerCase() === {{ admin_username|tojson }};
 
-  // Walid-only controls: supervisor panel, rename, delete tournament
-  if (!isWalid) {
+  // Super-admin only controls: supervisor panel, rename, delete tournament
+  if (!isSuperAdmin) {
     const sp = document.getElementById('supervisor-panel'); if (sp) sp.style.display = 'none';
     document.querySelectorAll('[onclick="openRenameModal()"]').forEach(function(b){ b.style.display = 'none'; });
     document.querySelectorAll('[onclick="deleteTournament()"]').forEach(function(b){
@@ -189,8 +189,8 @@
     tInfo = info; allMatches = matches || [];
     renderInfoBar(info, parts);
     renderParticipants(parts);
-    // Supervisor management is walid-only
-    if (isWalid) {
+    // Supervisor management is super-admin only
+    if (isSuperAdmin) {
       document.getElementById('supervisor-panel').style.display = 'block';
       const users = await api('/api/admin/users');
       renderSupervisors(users || []);
@@ -543,7 +543,7 @@
 
   function renderSupervisors(users) {
     const el = document.getElementById('supervisor-list');
-    supUsers = (users || []).filter(function(u) { return u.username && u.username.toLowerCase() !== 'walid'; });
+    supUsers = (users || []).filter(function(u) { return u.username && u.username.toLowerCase() !== {{ admin_username|tojson }}; });
     supOriginal = {};
     supUsers.forEach(function(u) { supOriginal[u.id] = u.is_supervisor ? 1 : 0; });
     document.getElementById('sup-save-msg').style.display = 'none';

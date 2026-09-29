@@ -66,7 +66,7 @@
 
 <!-- Supercup bracket view -->
 <div id="view-supercup" style="display:none">
-  <!-- Advance round banner (walid only) -->
+  <!-- Advance round banner (super-admin only) -->
   <div id="advance-banner" style="display:none;margin-bottom:1rem">
     <div class="card" style="background:var(--gold)12;border-color:var(--gold)66;padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
       <div>
@@ -141,9 +141,9 @@
   async function loadMatches() {
     let tid  = localStorage.getItem('tournament_id');
     const me   = localStorage.getItem('username');
-    const isWalid = me && me.toLowerCase() === 'walid';
+    const isSuperAdmin = me && me.toLowerCase() === {{ admin_username|tojson }};
     // Supervisors share admin-level powers: enter/validate any match
-    const isAdmin = isWalid || localStorage.getItem('is_supervisor') == '1';
+    const isAdmin = isSuperAdmin || localStorage.getItem('is_supervisor') == '1';
     // Fall back to the live tournament when this device never stored a tournament_id
     // (e.g. player logged in without the invite link, or was added by admin)
     if (!tid) {
@@ -190,7 +190,7 @@
       document.getElementById('view-supercup').style.display = 'block';
       renderSupercupPending(allMatches, me, isAdmin);
       renderBracket(allMatches, me, isAdmin, info);
-      checkAdvanceBanner(allMatches, isWalid);
+      checkAdvanceBanner(allMatches, isSuperAdmin);
     } else {
       document.getElementById('view-championnat').style.display = 'block';
       document.getElementById('view-supercup').style.display = 'none';
@@ -348,7 +348,7 @@
   function applyChampFilter() {
     const md = parseInt(document.getElementById('filter-journey').value);
     const me = localStorage.getItem('username');
-    const isAdmin = me && me.toLowerCase() === 'walid';
+    const isAdmin = me && me.toLowerCase() === {{ admin_username|tojson }};
     renderAllMatchCards(allMatches.filter(function(m) { return m.matchday === md; }), me, isAdmin);
   }
 

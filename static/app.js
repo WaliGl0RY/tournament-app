@@ -64,7 +64,7 @@ function avatarColor(name) {
   return colors[Math.abs(hash) % colors.length];
 }
 
-// Get initials from a name (e.g. "walid" → "WA")
+// Get initials from a name (e.g. "nova" → "NO")
 function initials(name) {
   return name.slice(0, 2).toUpperCase();
 }
