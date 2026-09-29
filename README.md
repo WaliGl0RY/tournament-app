@@ -363,8 +363,8 @@ tournament-app/
 This is a game-night app for a group of friends, and it has the limits of one:
 
 - **Two confirmations at the same moment could advance a knockout round twice.** When the last result of a round is confirmed, the server first checks "are all results in?" and then creates the next round, as two separate steps. If two confirmations arrived at exactly the same time, both could pass the check and create the round twice. With the default single gunicorn worker, requests are handled one after another, so this does not happen in the current setup.
-- **Usernames are not escaped in the pages.** A username that contains HTML is rendered as HTML for everyone who sees it in a table or bracket. Only let people you know register.
-- **Logins are weak on purpose.** A 4-digit PIN, stored in plain text, with no limit on wrong attempts.
+- **User input isn't escaped** when the pages display it.
+- **Logins are simple on purpose:** 4-digit PINs, stored in plain text, with no attempt limit.
 - **Some bad input returns 500 instead of 400.** For example, a non-numeric player count when creating a tournament.
 - **One database file, one server.** Everything is one SQLite file with no built-in backup, and the app can't run as several instances at once.
 - **Knockout Matches page on narrow screens.** Below about 900px width, the bracket on the Matches page of a knockout cup starts partly off-screen. The Table page is not affected.
