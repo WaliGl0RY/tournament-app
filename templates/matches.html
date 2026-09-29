@@ -491,11 +491,23 @@
         const isMyLeg = me && (m.home_username === me || m.away_username === me);
         const canEnter = m.home_score === null && (isAdmin || isMyLeg);
         const enterBtn = canEnter ? ' <button class="btn-enter" style="font-size:10px;padding:3px 8px" onclick="openModal(' + m.id + ',\'' + m.home_username + '\',\'' + m.away_username + '\')">+</button>' : '';
-        return '<div class="bracket-leg-row"><span class="bracket-leg-label">Leg ' + legNum + '</span>' +
+        return '<div class="bracket-leg-row"><span class="bracket-leg-label">' + (tLegs === 2 ? 'Leg ' + legNum : '') + '</span>' +
           '<span class="bracket-player">' + m.home_username + '</span>' +
           score +
           '<span class="bracket-player right">' + m.away_username + '</span>' +
           enterBtn + '</div>';
+      }
+
+      // Single-leg tie: one game, no leg 2, no aggregate
+      if (tLegs === 1) {
+        let resHtml = '<div class="bracket-agg">Result pending</div>';
+        if (l1.home_score !== null) {
+          // Draw → home advances (same rule as get_single_leg_winners on the server)
+          const winnerName = l1.home_score >= l1.away_score ? l1.home_username : l1.away_username;
+          resHtml = '<div class="bracket-agg winner">' + (isLast ? '🏆 ' : '→ ') + winnerName + '</div>';
+        }
+        return '<div class="bracket-pair-block ' + (l1.home_score !== null ? 'done' : 'active') + '">' +
+          legRow(l1, 1) + resHtml + '</div>';
       }
 
       const isDone = agg !== null;
@@ -553,12 +565,11 @@
     const lastRound = rounds[rounds.length - 1];
     const lastPairs = buildPairs(lastRound);
     if (lastPairs.length === 1) {
-      const agg = aggregateFor(lastPairs[0]);
-      const champName = agg ? (agg.h > agg.a ? agg.h1 : (agg.a > agg.h ? agg.h2 : agg.h1)) : '?';
+      const champName = computeChampion(matches);  // handles 1-leg and 2-leg finals
       html += '<div class="bracket-champion">' +
         '<div class="trophy">🏆</div>' +
         '<div class="champ-label">Champion</div>' +
-        '<div class="champ-name">' + (agg ? champName : '—') + '</div>' +
+        '<div class="champ-name">' + (champName || '—') + '</div>' +
         '</div>';
     }
 
