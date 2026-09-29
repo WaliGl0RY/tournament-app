@@ -295,7 +295,7 @@ The database (`tournament.db`) is created on first start. **Demo data:** `seed_d
 ADMIN_USERNAME=alex SECRET_KEY=change-me python app.py          # PowerShell: $env:ADMIN_USERNAME="alex"; python app.py
 ```
 
-> Logins use a name and a 4-digit PIN, made for a group of friends on one evening. Read [Known limitations](#known-limitations) before putting it on the internet.
+> Logins use a name and a 4-digit PIN, made for a group of friends on one evening. See [Security scope](#security-scope).
 
 **Team data:** `data/teams.json` ships with the repo. To rebuild it from the Kaggle FC 26 player dataset: `python scripts/build_teams_json.py --csv players.csv`.
 
@@ -351,6 +351,11 @@ tournament-app/
 ## How I built it
 
 > **[CHECK]** *Draft, rewrite in your own words:* BVS2 gave me the idea that this was possible: one server that several people use at the same time from their phones. From my databases course I knew how to design the tables and query them from Python. I used Claude as a coding assistant to turn the idea into a working app fast, so we could use it for our tournament.
+
+<a name="security-scope"></a>
+## Security scope
+
+> **[CHECK]** *Draft, rewrite in your own words:* This app was built for a small group of friends who trust each other. Sessions and personal PINs exist so that every player has their own profile, not to defend against attackers. It is not hardened, and it should not be deployed publicly as it is.
 
 <a name="known-limitations"></a>
 ## Known limitations
