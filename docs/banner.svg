@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="300" viewBox="0 0 1200 300" font-family="Segoe UI, -apple-system, Helvetica, Arial, sans-serif">
+<defs>
+  <linearGradient id="title" x1="0" x2="1" y1="0" y2="0">
+    <stop offset="0" stop-color="#ff5e14"/><stop offset="1" stop-color="#ffc400"/>
+  </linearGradient>
+  <radialGradient id="glow" cx="0.82" cy="0.5" r="0.45">
+    <stop offset="0" stop-color="#3a1a06" stop-opacity=".9"/><stop offset="1" stop-color="#120a0a" stop-opacity="0"/>
+  </radialGradient>
+</defs>
+<rect x="0.5" y="0.5" width="1199" height="299" rx="18" fill="#120a0a" stroke="#3a1c16"/>
+<rect x="1" y="1" width="1198" height="298" rx="18" fill="url(#glow)"/>
+<rect x="0" y="36" width="6" height="228" rx="3" fill="#ff5e14"/>
+
+<text x="54" y="84" fill="#a8847a" font-size="14" font-weight="600" letter-spacing="3">FC 26 · TOURNAMENTS AMONG FRIENDS</text>
+<text x="52" y="146" fill="url(#title)" font-size="60" font-weight="800" letter-spacing="-1">FC26 Tournament</text>
+<text x="54" y="184" fill="#d9c9bf" font-size="20">league · knockout cup · every score confirmed by the opponent</text>
+<text x="54" y="236" fill="#a8847a" font-size="15">Flask  ·  SQLite  ·  plain JavaScript</text>
+
+<!-- mini bracket: quarter-finals → semi-finals → final → trophy -->
+<g stroke="#5a2e22" stroke-width="3" fill="none" stroke-linecap="round">
+  <path d="M770 70 H790 V110 H810"/><path d="M770 150 H790 V110"/>
+  <path d="M770 190 H790 V230 H810"/><path d="M770 270 H790 V230"/>
+  <path d="M900 110 H920 V170 H940"/><path d="M900 230 H920 V170"/>
+</g>
+<g stroke="#ff7a1a" stroke-width="3" fill="none" stroke-linecap="round">
+  <path d="M770 150 H790 V110 H810"/><path d="M900 110 H920 V170 H940"/><path d="M1030 170 H1050"/>
+</g>
+<g fill="#1c1010" stroke="#4a2a20" stroke-width="1.5">
+  <rect x="690" y="58" width="80" height="24" rx="7"/>
+  <rect x="690" y="138" width="80" height="24" rx="7" stroke="#ff7a1a"/>
+  <rect x="690" y="178" width="80" height="24" rx="7"/>
+  <rect x="690" y="258" width="80" height="24" rx="7"/>
+  <rect x="810" y="98" width="90" height="24" rx="7" stroke="#ff7a1a"/>
+  <rect x="810" y="218" width="90" height="24" rx="7"/>
+  <rect x="940" y="156" width="90" height="28" rx="8" stroke="#ffc400" stroke-width="2"/>
+</g>
+<g font-size="12" font-weight="700" fill="#d9c9bf">
+  <text x="702" y="75">nova</text><text x="757" y="75" text-anchor="end" fill="#8a6a60">1</text>
+  <text x="702" y="155">pixel</text><text x="757" y="155" text-anchor="end" fill="#ff9a3a">3</text>
+  <text x="702" y="195">blaze</text><text x="757" y="195" text-anchor="end" fill="#ff9a3a">2</text>
+  <text x="702" y="275">raven</text><text x="757" y="275" text-anchor="end" fill="#8a6a60">0</text>
+  <text x="822" y="115">pixel</text><text x="887" y="115" text-anchor="end" fill="#ff9a3a">4</text>
+  <text x="822" y="235">blaze</text><text x="887" y="235" text-anchor="end" fill="#8a6a60">1</text>
+  <text x="985" y="175" text-anchor="middle" fill="#ffc400" letter-spacing="2" font-size="11">FINAL</text>
+</g>
+<text x="731" y="44" text-anchor="middle" fill="#8a6a60" font-size="10" font-weight="700" letter-spacing="2">QUARTER</text>
+<text x="855" y="86" text-anchor="middle" fill="#8a6a60" font-size="10" font-weight="700" letter-spacing="2">SEMI</text>
+
+<!-- trophy -->
+<g transform="translate(1058 116)">
+  <path d="M22 8 H74 V40 C74 62 62 76 48 76 C34 76 22 62 22 40 Z" fill="#ffc400"/>
+  <path d="M22 16 H8 C8 38 16 46 26 48" fill="none" stroke="#ffc400" stroke-width="6" stroke-linecap="round"/>
+  <path d="M74 16 H88 C88 38 80 46 70 48" fill="none" stroke="#ffc400" stroke-width="6" stroke-linecap="round"/>
+  <rect x="42" y="76" width="12" height="16" fill="#e0a800"/>
+  <rect x="28" y="92" width="40" height="12" rx="3" fill="#ff7a1a"/>
+  <path d="M34 16 C34 40 40 56 48 62" fill="none" stroke="#fff3c4" stroke-width="4" stroke-linecap="round" opacity=".55"/>
+</g>
+</svg>
