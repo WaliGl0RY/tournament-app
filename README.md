@@ -305,7 +305,7 @@ flowchart LR
 With Python 3.11 or newer (on Windows, double-clicking **`run_local.bat`** does all of this for you):
 
 ```bash
-git clone https://github.com/wragoub-design/tournament-app.git && cd tournament-app
+git clone https://github.com/WaliGl0RY/fc26-tournament.git && cd fc26-tournament
 pip install -r requirements.txt
 python app.py
 ```
@@ -357,7 +357,7 @@ This setup was one instance by design: one container, one SQLite file on one vol
 <br>
 
 ```
-tournament-app/
+fc26-tournament/
 ├── app.py              ← Flask app: secret key, blueprints, database init
 ├── auth.py             ← register · login · logout · /api/me (session)
 ├── routes.py           ← pages + JSON API: tournaments, matches, validation, logs
