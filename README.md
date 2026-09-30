@@ -44,22 +44,36 @@ My friends and I had an FC26 tournament going, and one person had to organise ev
 
 <table>
   <tr>
-    <td width="50%" valign="top"><b>1 · Foundation</b><br><sub>11.06.2026 · 5 commits</sub><br>The whole app in one go: accounts, tournaments with invite links, league and knockout fixtures, team assignment and the live table. Then Railway deploy prep, removing players and assigning teams by hand.<br><i>“The standings had to be visible to everyone, all the time, so nobody had to ask one person anymore.”</i></td>
-    <td width="50%" valign="top"><b>2 · Fair play</b><br><sub>11.06.2026 · 1 commit</sub><br>A submitted score stays pending until the opponent validates or rejects it.<br><i>“Between friends, someone always tries a joke: a wrong score, or 1000 goals. So a result only counts once the opponent confirms it.”</i></td>
+    <td width="50%" valign="top"><img src="docs/story/phase-01.svg" alt="Phase 01: Foundation. 11.06.2026, 5 commits. The whole app in one go: accounts, tournaments with invite links, league and knockout fixtures, team assignment and the live table. Then Railway deploy prep, removing players and assigning teams by hand. Why: “The standings had to be visible to everyone, all the time, so nobody had to ask one person anymore.”" width="100%"></td>
+    <td width="50%" valign="top"><img src="docs/story/phase-02.svg" alt="Phase 02: Fair play. 11.06.2026, 1 commit. A submitted score stays pending until the opponent validates or rejects it. Why: “Between friends, someone always tries a joke: a wrong score, or 1000 goals. So a result only counts once the opponent confirms it.”" width="100%"></td>
   </tr>
   <tr>
-    <td width="50%" valign="top"><b>3 · Finding your way</b><br><sub>11.06 – 12.06.2026 · 8 commits</sub><br>The full bracket with future rounds as TBD, then leg and matchday filters that open on your next match.<br><i>“Nobody should have to dig through everyone else's matches to find their own. Your next match comes first, and the rest stays organised.”</i></td>
-    <td width="50%" valign="top"><b>4 · For everyone watching</b><br><sub>11.06.2026 · 5 commits</sub><br>A spectator view of the live table and bracket, even without an invite link, and banners for players and for people waiting.<br><i>“Some friends weren't playing this time but still wanted to follow the tournament while waiting for the next one. So they got their own view.”</i></td>
+    <td width="50%" valign="top"><img src="docs/story/phase-03.svg" alt="Phase 03: Finding your way. 11.06 – 12.06.2026, 8 commits. The full bracket with future rounds as TBD, then leg and matchday filters that open on your next match. Why: “Nobody should have to dig through everyone else&#x27;s matches to find their own. Your next match comes first, and the rest stays organised.”" width="100%"></td>
+    <td width="50%" valign="top"><img src="docs/story/phase-04.svg" alt="Phase 04: For everyone watching. 11.06.2026, 5 commits. A spectator view of the live table and bracket, even without an invite link, and banners for players and for people waiting. Why: “Some friends weren&#x27;t playing this time but still wanted to follow the tournament while waiting for the next one. So they got their own view.”" width="100%"></td>
   </tr>
   <tr>
-    <td width="50%" valign="top"><b>5 · The big moment</b><br><sub>11.06.2026 · 4 commits</sub><br>A full-screen champion celebration with trophy and confetti, and the Squad Sheet next to the bracket.<br><i>“The winner should feel special. After a whole tournament, the end deserves more than a line in a table.”</i></td>
-    <td width="50%" valign="top"><b>6 · In your pocket</b><br><sub>11.06.2026 · 3 commits</sub><br>A mobile-only layout: compact navigation, sideways-scrolling brackets, no page overflow.<br><i>“Most players were on consoles, so the phone was the easiest way to follow the tournament and enter results.”</i></td>
+    <td width="50%" valign="top"><img src="docs/story/phase-05.svg" alt="Phase 05: The big moment. 11.06.2026, 4 commits. A full-screen champion celebration with trophy and confetti, and the Squad Sheet next to the bracket. Why: “The winner should feel special. After a whole tournament, the end deserves more than a line in a table.”" width="100%"></td>
+    <td width="50%" valign="top"><img src="docs/story/phase-06.svg" alt="Phase 06: In your pocket. 11.06.2026, 3 commits. A mobile-only layout: compact navigation, sideways-scrolling brackets, no page overflow. Why: “Most players were on consoles, so the phone was the easiest way to follow the tournament and enter results.”" width="100%"></td>
   </tr>
   <tr>
-    <td width="50%" valign="top"><b>7 · Running the real night</b><br><sub>12.06.2026 · 6 commits</sub><br>A supervisor role, one queue of scores to validate, walkover for missing results, renaming and team reassignment.<br><i>“I couldn't always be there as the admin. If someone rage-quit or a score needed fixing, someone had to step in. So whoever creates a tournament becomes its supervisor, and can give that role to people they trust.”</i></td>
-    <td width="50%" valign="top"><b>8 · Ready to show</b><br><sub>September 2026 · 11 commits</sub><br>Demo data with invented players, a configurable admin, the single-leg bracket fix, and this README.</td>
+    <td width="50%" valign="top"><img src="docs/story/phase-07.svg" alt="Phase 07: Running the real night. 12.06.2026, 6 commits. A supervisor role, one queue of scores to validate, walkover for missing results, renaming and team reassignment. Why: “I couldn&#x27;t always be there as the admin. If someone rage-quit or a score needed fixing, someone had to step in. So whoever creates a tournament becomes its supervisor, and can give that role to people they trust.”" width="100%"></td>
+    <td width="50%" valign="top"><img src="docs/story/phase-08.svg" alt="Phase 08: Ready to show. September 2026, 12 commits. Demo data with invented players, a configurable admin, the single-leg bracket fix, and this README." width="100%"></td>
   </tr>
 </table>
+
+<details>
+<summary>The 8 phases as plain text</summary>
+
+- **01 · Foundation** (11.06.2026 · 5 commits). The whole app in one go: accounts, tournaments with invite links, league and knockout fixtures, team assignment and the live table. Then Railway deploy prep, removing players and assigning teams by hand. *“The standings had to be visible to everyone, all the time, so nobody had to ask one person anymore.”*
+- **02 · Fair play** (11.06.2026 · 1 commit). A submitted score stays pending until the opponent validates or rejects it. *“Between friends, someone always tries a joke: a wrong score, or 1000 goals. So a result only counts once the opponent confirms it.”*
+- **03 · Finding your way** (11.06 – 12.06.2026 · 8 commits). The full bracket with future rounds as TBD, then leg and matchday filters that open on your next match. *“Nobody should have to dig through everyone else's matches to find their own. Your next match comes first, and the rest stays organised.”*
+- **04 · For everyone watching** (11.06.2026 · 5 commits). A spectator view of the live table and bracket, even without an invite link, and banners for players and for people waiting. *“Some friends weren't playing this time but still wanted to follow the tournament while waiting for the next one. So they got their own view.”*
+- **05 · The big moment** (11.06.2026 · 4 commits). A full-screen champion celebration with trophy and confetti, and the Squad Sheet next to the bracket. *“The winner should feel special. After a whole tournament, the end deserves more than a line in a table.”*
+- **06 · In your pocket** (11.06.2026 · 3 commits). A mobile-only layout: compact navigation, sideways-scrolling brackets, no page overflow. *“Most players were on consoles, so the phone was the easiest way to follow the tournament and enter results.”*
+- **07 · Running the real night** (12.06.2026 · 6 commits). A supervisor role, one queue of scores to validate, walkover for missing results, renaming and team reassignment. *“I couldn't always be there as the admin. If someone rage-quit or a score needed fixing, someone had to step in. So whoever creates a tournament becomes its supervisor, and can give that role to people they trust.”*
+- **08 · Ready to show** (September 2026 · 12 commits). Demo data with invented players, a configurable admin, the single-leg bracket fix, and this README.
+
+</details>
 
 ---
 
@@ -72,7 +86,7 @@ Built around the actual game night: someone sets up a tournament, everybody play
   <tr>
     <td width="33%" align="center" valign="top"><img src="docs/screenshots/grid/teams.png" alt="Fair team assignment"><br><b>Fair team assignment</b><br><sub>the strongest matching FC 26 teams, one per player</sub></td>
     <td width="33%" align="center" valign="top"><img src="docs/screenshots/grid/validation.png" alt="Score validation"><br><b>Score validation</b><br><sub>a result counts once the opponent confirms it</sub></td>
-    <td width="33%" align="center" valign="top"><img src="docs/screenshots/grid/bracket.png" alt="Live bracket"><br><b>Live bracket</b><br><sub>every round up to the champion, future rounds as TBD</sub></td>
+    <td width="33%" align="center" valign="top"><img src="docs/screenshots/grid/bracket.png" alt="Live bracket"><br><b>Live bracket</b><br><sub>every round up to the champion</sub></td>
   </tr>
   <tr>
     <td width="33%" align="center" valign="top"><img src="docs/screenshots/grid/next_match.png" alt="Your next match first"><br><b>Your next match first</b><br><sub>leg and matchday filters instead of one long list</sub></td>
@@ -170,7 +184,7 @@ On a phone the navigation wraps into a scrollable row, long names are cut off cl
 Where topics from the module *Betriebssysteme und Verteilte Systeme 2* (TH Köln) show up in this code. Each excerpt is the smallest piece that shows the idea, with one comment per line; the link under it leads to the full code.
 
 <details>
-<summary><b>Client-server with a REST-style JSON API</b> · the browser asks, Flask answers in JSON</summary>
+<summary><img src="docs/labels/concept-client-server.svg" align="absmiddle" alt="Client-server with a REST-style JSON API · the browser asks, Flask answers in JSON"></summary>
 <br>
 
 **In plain words.** The browser is the client and only draws. The Flask app is the server and only answers. Every page asks for its data with an HTTP request to a URL that names one thing (the matches of tournament 2, one match, one tournament) and gets JSON back. It's REST-*style* rather than strict REST, because a few URLs like `/start` or `/advance-round` name an action, not a thing.
@@ -193,7 +207,7 @@ Full code: [`static/app.js` lines 6–21](static/app.js#L6-L21) · [`routes.py` 
 </details>
 
 <details>
-<summary><b>Stateless HTTP with a session cookie</b> · the server forgets you after every request</summary>
+<summary><img src="docs/labels/concept-stateless.svg" align="absmiddle" alt="Stateless HTTP with a session cookie · the server forgets you after every request"></summary>
 <br>
 
 **In plain words.** HTTP has no memory: every request arrives on its own. So at login Flask writes the user's ID into the **session**, which travels to the browser as a signed cookie. The browser sends it back with every request, and every protected route reads it again. The server keeps nothing in between.
@@ -210,7 +224,7 @@ Full code: [`app.py` line 9](app.py#L9) · [`auth.py` lines 34–50](auth.py#L34
 </details>
 
 <details>
-<summary><b>Explicit HTTP status codes</b> · every failure says what kind of failure it is</summary>
+<summary><img src="docs/labels/concept-status-codes.svg" align="absmiddle" alt="Explicit HTTP status codes · every failure says what kind of failure it is"></summary>
 <br>
 
 **In plain words.** The status code lets the client react without reading the error text. Submitting a score checks four things in order, and each "no" has its own code. Without the explicit number, Flask would answer 200 and the error would look like a success.
@@ -231,7 +245,7 @@ Full code: [`routes.py` lines 446–481](routes.py#L446-L481)
 </details>
 
 <details>
-<summary><b>Idempotency</b> · joining twice is the same as joining once</summary>
+<summary><img src="docs/labels/concept-idempotency.svg" align="absmiddle" alt="Idempotency · joining twice is the same as joining once"></summary>
 <br>
 
 **In plain words.** A request is *idempotent* if sending it twice leaves the server in the same state as sending it once. `POST` normally isn't, but joining a tournament is built that way: the second time, the server finds you already in and changes nothing. A double tap on a phone does no harm.
@@ -251,7 +265,7 @@ Full code: [`routes.py` lines 130–149](routes.py#L130-L149)
 </details>
 
 <details>
-<summary><b>Architecture</b> · how the browser, Flask and SQLite fit together</summary>
+<summary><img src="docs/labels/architecture.svg" align="absmiddle" alt="Architecture · how the browser, Flask and SQLite fit together"></summary>
 <br>
 
 ```mermaid
@@ -285,6 +299,9 @@ flowchart LR
 <a name="run"></a>
 <p><img src="docs/zones/run.svg" alt="Run it yourself" width="100%"></p>
 
+<a name="quick-start"></a>
+<p><img src="docs/labels/quick-start.svg" alt="Quick start · three commands"></p>
+
 With Python 3.11 or newer (on Windows, double-clicking **`run_local.bat`** does all of this for you):
 
 ```bash
@@ -296,7 +313,7 @@ python app.py
 Then open http://127.0.0.1:5000. The database (`tournament.db`) is created on first start.
 
 <details>
-<summary><b>Demo data</b> · invented players and three tournaments to click through</summary>
+<summary><img src="docs/labels/demo-data.svg" align="absmiddle" alt="Demo data · invented players and three tournaments to click through"></summary>
 <br>
 
 Run `python seed_demo.py` once, before `python app.py`.
@@ -305,7 +322,7 @@ Run `python seed_demo.py` once, before `python app.py`.
 </details>
 
 <details>
-<summary><b>Settings</b> · environment variables, all optional</summary>
+<summary><img src="docs/labels/settings.svg" align="absmiddle" alt="Settings · environment variables, all optional"></summary>
 <br>
 
 | Variable | Default | What it does |
@@ -325,7 +342,7 @@ ADMIN_USERNAME=alex SECRET_KEY=change-me python app.py          # PowerShell: $e
 </details>
 
 <details>
-<summary><b>Deployment</b> · how it ran on Railway</summary>
+<summary><img src="docs/labels/deployment.svg" align="absmiddle" alt="Deployment · how it ran on Railway"></summary>
 <br>
 
 The app ran on **Railway**. Railway built the repository into a container image and ran it as a container. Three small files in the repo were all it needed: `requirements.txt` (Flask and gunicorn), `.python-version` (Python 3.11) and the `Procfile`, whose start command `gunicorn app:app` ran the app with gunicorn instead of Flask's development server.
@@ -336,7 +353,7 @@ This setup was one instance by design: one container, one SQLite file on one vol
 </details>
 
 <details>
-<summary><b>Project structure</b> · where everything lives</summary>
+<summary><img src="docs/labels/project-structure.svg" align="absmiddle" alt="Project structure · where everything lives"></summary>
 <br>
 
 ```
@@ -365,12 +382,12 @@ tournament-app/
 <p><img src="docs/zones/notes.svg" alt="Honest notes" width="100%"></p>
 
 <a name="security-scope"></a>
-## Security scope
+<p><img src="docs/labels/security-scope.svg" alt="Security scope"></p>
 
 > **[CHECK]** *Draft, rewrite in your own words:* This app was built for a small group of friends who trust each other. Sessions and personal PINs exist so that every player has their own profile, not to defend against attackers. It is not hardened, and it should not be deployed publicly as it is.
 
 <a name="known-limitations"></a>
-## Known limitations
+<p><img src="docs/labels/known-limitations.svg" alt="Known limitations"></p>
 
 - **Race on round advance:** two confirmations at the same moment could create the next knockout round twice (not with the single worker it ran on).
 - **User input isn't escaped** when the pages display it.
@@ -380,6 +397,7 @@ tournament-app/
 - **Knockout Matches page on narrow screens** starts partly off-screen below about 900px.
 - **No automated tests:** everything was tested by hand and by playing.
 
-## License
+<a name="license"></a>
+<p><img src="docs/labels/license.svg" alt="License"></p>
 
 [MIT](LICENSE)

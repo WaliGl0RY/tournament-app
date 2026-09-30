@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="266" viewBox="0 0 560 266" font-family="Segoe UI, -apple-system, Helvetica, Arial, sans-serif">
+<defs><linearGradient id="g" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#8b5cf6" stop-opacity=".22"/><stop offset=".6" stop-color="#8b5cf6" stop-opacity="0"/></linearGradient></defs>
+<rect x="0.5" y="0.5" width="559" height="265" rx="14" fill="#131016" stroke="#8b5cf6" stroke-opacity=".45"/>
+<rect x="1" y="1" width="558" height="264" rx="14" fill="url(#g)"/>
+<rect x="0" y="18" width="5" height="52" rx="2.5" fill="#8b5cf6"/>
+<rect x="30" y="24" width="46" height="26" rx="13" fill="#8b5cf6"/>
+<text x="53" y="42" fill="#ffffff" font-size="14" font-weight="700" text-anchor="middle" letter-spacing="1">07</text>
+<text x="90" y="44" fill="#f5f0fa" font-size="21" font-weight="700">Running the real night</text>
+<text x="30" y="74" fill="#a39cae" font-size="14">12.06.2026 · 6 commits</text>
+<text x="30" y="104" fill="#ece6f2" font-size="16">A supervisor role, one queue of scores to validate, walkover for</text>
+<text x="30" y="127" fill="#ece6f2" font-size="16">missing results, renaming and team reassignment.</text>
+<text x="30" y="162" fill="#c4b5fd" font-size="16" font-style="italic">“I couldn&#x27;t always be there as the admin. If someone rage-quit or a</text>
+<text x="30" y="185" fill="#c4b5fd" font-size="16" font-style="italic">score needed fixing, someone had to step in. So whoever creates</text>
+<text x="30" y="208" fill="#c4b5fd" font-size="16" font-style="italic">a tournament becomes its supervisor, and can give that role to</text>
+<text x="30" y="231" fill="#c4b5fd" font-size="16" font-style="italic">people they trust.”</text>
+</svg>

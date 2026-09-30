@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="555" height="36" viewBox="0 0 555 36" font-family="Segoe UI, -apple-system, Helvetica, Arial, sans-serif">
+<rect x="0.5" y="0.5" width="554" height="35" rx="9" fill="#131016" stroke="#22c55e" stroke-opacity=".6"/>
+<rect x="0" y="8" width="4" height="20" rx="2" fill="#22c55e"/>
+<circle cx="24" cy="18" r="5" fill="#22c55e"/>
+<text x="40" y="24"><tspan fill="#86efac" font-size="16" font-weight="700">Demo data</tspan><tspan dx="12" fill="#b3aab4" font-size="14" font-weight="400">·  invented players and three tournaments to click through</tspan></text>
+</svg>

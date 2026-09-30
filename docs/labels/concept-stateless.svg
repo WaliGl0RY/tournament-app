@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="671" height="36" viewBox="0 0 671 36" font-family="Segoe UI, -apple-system, Helvetica, Arial, sans-serif">
+<rect x="0.5" y="0.5" width="670" height="35" rx="9" fill="#131016" stroke="#06b6d4" stroke-opacity=".6"/>
+<rect x="0" y="8" width="4" height="20" rx="2" fill="#06b6d4"/>
+<circle cx="24" cy="18" r="5" fill="#06b6d4"/>
+<text x="40" y="24"><tspan fill="#67e8f9" font-size="16" font-weight="700">Stateless HTTP with a session cookie</tspan><tspan dx="12" fill="#b3aab4" font-size="14" font-weight="400">·  the server forgets you after every request</tspan></text>
+</svg>
