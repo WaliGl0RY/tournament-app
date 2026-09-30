@@ -37,7 +37,7 @@ My friends and I had an FC26 tournament going, and one person had to organise ev
 
 ## How I built it
 
-> **[CHECK]** *Draft, rewrite in your own words:* BVS2 gave me the idea that this was possible: one server that several people use at the same time from their phones. From my databases course I knew how to design the tables and query them from Python. I used Claude as a coding assistant to turn the idea into a working app fast, so we could use it for our tournament.
+BVS2 showed me that this was possible: one server that everyone uses at the same time, from their phones or their PCs. From my databases course I knew how to design the tables and query them from Python. I used Claude as a coding assistant to turn the idea into a working app fast, so we could use it for our tournament. I decided what the app needed; every feature came from something that happened while we played.
 
 <a name="how-it-grew"></a>
 ## How it grew
@@ -203,7 +203,7 @@ def get_matches(tid):                                    # tid comes out of the 
 ```
 Full code: [`static/app.js` lines 6–21](static/app.js#L6-L21) · [`routes.py` lines 422–442](routes.py#L422-L442)
 
-> **[CHECK] Why I did it this way:** *In your words. For example, why the pages fetch JSON instead of rendering everything on the server, and what that made easier (live refresh, spectator view, same API for every page).*
+> **Why I did it this way:** Everyone needed to see the same standings. One server holds the only true version of the tournament, and every phone or PC just asks it. Nobody has to install anything, a browser is enough.
 </details>
 
 <details>
@@ -220,7 +220,7 @@ if 'user_id' not in session:             # EVERY request: read the cookie again,
 ```
 Full code: [`app.py` line 9](app.py#L9) · [`auth.py` lines 34–50](auth.py#L34-L50) · [`routes.py` lines 19–22](routes.py#L19-L22)
 
-> **[CHECK] Why I did it this way:** *In your words. For example, why a signed cookie and not a server-side session table, and why a 4-digit PIN was enough for a game night.*
+> **Why I did it this way:** HTTP forgets who you are after every request. The session cookie reminds the server, so every player has their own profile and can only enter their own results.
 </details>
 
 <details>
@@ -241,7 +241,7 @@ if match['home_score'] is not None: return jsonify({'error': 'Result already val
 ```
 Full code: [`routes.py` lines 446–481](routes.py#L446-L481)
 
-> **[CHECK] Why I did it this way:** *In your words. For example, what the frontend does differently with a 409 than with a 403.*
+> **Why I did it this way:** When something goes wrong, the page needs to know what happened: not allowed, not found, or bad input. Clear status codes let it show a clear message instead of just failing.
 </details>
 
 <details>
@@ -261,7 +261,7 @@ db.execute('INSERT INTO participants (tournament_id, user_id) VALUES (?,?)', (ti
 ```
 Full code: [`routes.py` lines 130–149](routes.py#L130-L149)
 
-> **[CHECK] Why I did it this way:** *In your words. For example, what went wrong (or could have) when people opened the invite link twice.*
+> **Why I did it this way:** Most players were on their phones, sometimes with a bad connection, and people tap twice. Sending the same action again must not count it twice.
 </details>
 
 <details>
@@ -384,7 +384,7 @@ tournament-app/
 <a name="security-scope"></a>
 <p><img src="docs/labels/security-scope.svg" alt="Security scope"></p>
 
-> **[CHECK]** *Draft, rewrite in your own words:* This app was built for a small group of friends who trust each other. Sessions and personal PINs exist so that every player has their own profile, not to defend against attackers. It is not hardened, and it should not be deployed publicly as it is.
+I built this for a small group of friends who trust each other. Every player sets their own simple PIN, so everyone has their own profile. It keeps profiles apart; it doesn't keep attackers out. It isn't hardened, so don't deploy it publicly as it is.
 
 <a name="known-limitations"></a>
 <p><img src="docs/labels/known-limitations.svg" alt="Known limitations"></p>
